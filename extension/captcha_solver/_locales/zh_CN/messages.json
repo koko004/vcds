@@ -1,0 +1,10 @@
+{
+    "extName": { "message": "验证码自动识别器: 自动处理hCaptcha,reCAPTCHA和MTCaptcha" },
+    "extShortName": { "message": "验证码自动识别器" },
+    "extDesc": { "message": "解决 hCaptcha、reCAPTCHA 和 MTCaptcha 问题。支持 Playwright、Puppeteer 和 NoCoding Data Scraper 进行网页抓取。" },
+    "extAuthor": { "message": "miniRPA <service@minirpa.net>" },
+    "lbl_logo": { "message": "MiniRPA验证码识别器" },
+    "partner_nds": { "message": "迷你派采集器" }
+
+}
+

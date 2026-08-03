@@ -1,0 +1,69 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 2rem 1rem; }
+.container { width: 100%; max-width: 800px; }
+h1 { font-size: 1.5rem; margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.5rem; }
+.subtitle { color: #666; margin-bottom: 1.5rem; font-size: 0.9rem; }
+
+.card { background: #fff; border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.card h2 { font-size: 1rem; margin-bottom: 1rem; color: #333; }
+
+.drop-zone { border: 2px dashed #ccc; border-radius: 8px; padding: 2.5rem 1rem; text-align: center; cursor: pointer; transition: all 0.2s; }
+.drop-zone:hover, .drop-zone.dragover { border-color: #2563eb; background: #f8faff; }
+.drop-zone-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+.drop-zone p { color: #666; font-size: 0.9rem; }
+
+.datos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.dato-item label { display: block; font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.25rem; }
+.dato-item .valor { font-size: 1rem; font-weight: 500; color: #1a1a2e; padding: 0.4rem 0.6rem; background: #f8f9fa; border-radius: 4px; }
+.dato-item .valor.vacio { color: #999; font-style: italic; }
+
+.btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.7rem 1.5rem; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+.btn-primary { background: #2563eb; color: #fff; }
+.btn-primary:hover:not(:disabled) { background: #1d4ed8; }
+.btn-primary:disabled { background: #93c5fd; cursor: not-allowed; }
+.btn-secondary { background: #e5e7eb; color: #333; }
+.btn-secondary:hover { background: #d1d5db; }
+.btn-success { background: #16a34a; color: #fff; }
+.btn-success:hover { background: #15803d; }
+.btn-danger { background: #dc2626; color: #fff; }
+.btn-warning { background: #f59e0b; color: #fff; }
+
+.status-bar { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; }
+.status-bar.pending { background: #fef3c7; color: #92400e; }
+.status-bar.running { background: #dbeafe; color: #1e40af; }
+.status-bar.success { background: #dcfce7; color: #166534; }
+.status-bar.error { background: #fee2e2; color: #991b1b; }
+.spinner { width: 20px; height: 20px; border: 3px solid #93c5fd; border-top-color: #2563eb; border-radius: 50%; animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.result-card { border-left: 4px solid; }
+.result-card.original { border-left-color: #16a34a; }
+.result-card.manipulado { border-left-color: #dc2626; }
+.result-card.dudoso { border-left-color: #f59e0b; }
+
+.veredicto { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; }
+.veredicto .icon { font-size: 1.5rem; }
+.result-card.original .veredicto { color: #16a34a; }
+.result-card.manipulado .veredicto { color: #dc2626; }
+.result-card.dudoso .veredicto { color: #f59e0b; }
+
+.detalles h3 { font-size: 0.85rem; color: #666; margin: 1rem 0 0.5rem; text-transform: uppercase; letter-spacing: 0.5px; }
+.campo-comp { display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0.6rem; margin-bottom: 0.25rem; background: #f8f9fa; border-radius: 4px; font-size: 0.9rem; }
+.campo-comp.ok { border-left: 3px solid #16a34a; }
+.campo-comp.fail { border-left: 3px solid #dc2626; }
+.campo-comp .badge { font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 600; }
+.badge-ok { background: #dcfce7; color: #166534; }
+.badge-fail { background: #fee2e2; color: #991b1b; }
+
+.hidden { display: none; }
+.mt-1 { margin-top: 1rem; }
+.mt-2 { margin-top: 2rem; }
+.flex { display: flex; }
+.gap-1 { gap: 0.75rem; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+
+.paso { margin-bottom: 0.5rem; padding: 0.75rem; border-radius: 6px; background: #f8f9fa; border-left: 3px solid #ccc; }
+.paso.activo { border-left-color: #2563eb; background: #eff6ff; }
+.paso.hecho { border-left-color: #16a34a; background: #f0fdf4; }
+.paso .paso-icon { margin-right: 0.5rem; }

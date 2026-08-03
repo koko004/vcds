@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>PDF Text Extractor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+<div id="status">Loading PDF.js...</div>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const params = new URLSearchParams(window.location.search);
+const pdfPath = params.get('file');
+
+if (!pdfPath) {
+  document.getElementById('status').textContent = 'ERROR: No file parameter';
+} else {
+  document.getElementById('status').textContent = 'Loading PDF: ' + pdfPath;
+  extractText(pdfPath);
+}
+
+async function extractText(path) {
+  try {
+    const loadingTask = pdfjsLib.getDocument('file://' + path);
+    const pdf = await loadingTask.promise;
+    let allText = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const pageText = content.items.map(item => item.str).join(' ');
+      allText.push(pageText);
+    }
+    const result = { ok: true, pages: allText.length, text: allText.join('\n') };
+    document.getElementById('status').textContent = 'DONE';
+    window.__pdfResult = JSON.stringify(result);
+  } catch (e) {
+    const result = { ok: false, error: e.message };
+    document.getElementById('status').textContent = 'ERROR: ' + e.message;
+    window.__pdfResult = JSON.stringify(result);
+  }
+}
+</script>
+</body>
+</html>

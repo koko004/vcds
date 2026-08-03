@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="/static/favicon.ico" sizes="48x48">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<title>VCDS - Iniciar Sesión</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+.login-wrapper { display:flex; justify-content:center; align-items:center; min-height:80vh; }
+.login-card { background:#fff; border-radius:16px; padding:2.5rem; width:100%; max-width:400px; box-shadow:0 4px 24px rgba(0,0,0,0.1); }
+.login-card h1 { font-size:1.5rem; text-align:center; margin-bottom:0.5rem; color:#1a1a2e; }
+.login-card .login-subtitle { text-align:center; color:#666; font-size:0.9rem; margin-bottom:1.5rem; }
+.login-card .logo-center { text-align:center; margin-bottom:1.5rem; }
+.login-card .logo-center img { height:80px; width:auto; }
+.form-group { margin-bottom:1rem; }
+.form-group label { display:block; font-size:0.8rem; color:#888; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:0.35rem; }
+.form-group input { width:100%; padding:0.7rem 1rem; border:1.5px solid #d1d5db; border-radius:8px; font-size:1rem; font-family:inherit; background:#fafafa; transition:border-color 0.2s, box-shadow 0.2s; box-sizing:border-box; }
+.form-group input:focus { outline:none; border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,0.15); background:#fff; }
+.login-btn { width:100%; padding:0.8rem; border:none; border-radius:8px; background:#2563eb; color:#fff; font-size:1rem; font-weight:600; cursor:pointer; transition:background 0.2s; }
+.login-btn:hover { background:#1d4ed8; }
+.login-btn:disabled { background:#93c5fd; cursor:not-allowed; }
+.login-error { background:#fee2e2; color:#991b1b; padding:0.6rem 1rem; border-radius:8px; font-size:0.85rem; margin-bottom:1rem; display:none; }
+.login-error.show { display:block; }
+</style>
+</head>
+<body>
+<div class="login-wrapper">
+  <div class="login-card">
+    <div class="logo-center">
+      <img src="/static/logo.png" alt="Logo VCDS">
+    </div>
+    <h1>VCDS</h1>
+    <p class="login-subtitle">Verificador de Certificados de Delitos Sexuales</p>
+
+    <div class="login-error" id="loginError"></div>
+
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="username">Usuario</label>
+        <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+      </div>
+      <div class="form-group">
+        <label for="password">Contraseña</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required>
+      </div>
+      <input type="hidden" id="csrfToken" name="csrf_token">
+      <button type="submit" class="login-btn" id="loginBtn">Iniciar sesión</button>
+    </form>
+  </div>
+</div>
+
+<script>
+(function() {
+  const form = document.getElementById('loginForm');
+  const errorDiv = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+
+  fetch('/api/auth/csrf').then(r=>r.json()).then(d=>{
+    document.getElementById('csrfToken').value = d.token;
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorDiv.classList.remove('show');
+    btn.disabled = true;
+    btn.textContent = 'Iniciando sesión...';
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: document.getElementById('username').value,
+          password: document.getElementById('password').value,
+          csrf_token: document.getElementById('csrfToken').value,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        window.location.href = '/';
+      } else {
+        errorDiv.textContent = data.detail || 'Credenciales incorrectas';
+        errorDiv.classList.add('show');
+        btn.disabled = false;
+        btn.textContent = 'Iniciar sesión';
+      }
+    } catch (err) {
+      errorDiv.textContent = 'Error de conexión';
+      errorDiv.classList.add('show');
+      btn.disabled = false;
+      btn.textContent = 'Iniciar sesión';
+    }
+  });
+})();
+</script>
+</body>
+</html>

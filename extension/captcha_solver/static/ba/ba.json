@@ -1,0 +1,45 @@
+{
+ "//--- ** How to work with Playwright / Puppeteer **                                                                   ": "---//",
+ "//--- Playwright: follow the steps described at the beginning of static/ba/ba-playwright.js                           ": "---//",
+ "//--- Puppeteer: follow the steps described at the beginning of static/ba/ba-puppeteer.js                             ": "---//",
+
+
+  "//--- [REQUIRED]: your credit key - please keep it secret                                                            ":"---//",
+  "creditKey": "",
+
+
+  "//--- enableCaptchaSolver: the global turn on/off                                                                    ":"---//",
+  "enableCaptchaSolver":true,
+
+
+  "//--- enableHCaptcha: hCaptcha turn on/off                                                                           ":"---//",
+  "enableHCaptcha":true,
+  "//--- hcSolveGridClick: solve hCaptcha grid click task                                                               ":"---//",
+  "hcSolveGridClick": true,
+  "//--- hcSolveBoundingClick: solve hCaptcha bounding click task                                                       ":"---//",
+  "hcSolveBoundingClick": true,
+  "//--- hcSolveBoundingDrag (beta): solve hCaptcha bounding drag task                                                  ":"---//",
+  "hcSolveBoundingDrag": false,
+  "//--- hCaptchaMaxContinuousFailures: stop hCaptcha auto solving once the max continuous failure times reached        ":"---//",
+  "hCaptchaMaxContinuousFailures":12,
+
+  "//--- enableReCaptcha: reCaptcha turn on/off                                                                         ":"---//",
+  "enableReCaptcha":true,
+  "//--- reSolveGridClick: solve reCaptcha Grid click task                                                              ":"---//",
+  "reSolveGridClick": true,
+  "//--- reSolveBoundingClick: solve reCaptcha Bounding click task                                                      ":"---//",
+  "reSolveBoundingClick": true,
+  "//--- reCaptchaMaxContinuousFailures: stop reCaptcha auto solving once the max continuous failure times reached      ":"---//",
+  "reCaptchaMaxContinuousFailures":12,
+
+  "//--- enableMTCaptcha: mtCaptcha turn on/off                                                                         ": "---//",
+  "enableMTCaptcha":true,
+  "//--- mtCaptchaMaxContinuousFailures: stop mtCaptcha auto solving once the max continuous failure times reached      ":"---//",
+  "mtCaptchaMaxContinuousFailures":12,
+
+
+  "//--- enableIgnoreDomainList: ignore domain list turn on/off                                                         ":"---//",
+  "enableIgnoreDomainList":true,
+  "//--- ignoredDomainList: ignored domain list                                                                         ":"---//",
+  "ignoredDomainList": []
+}

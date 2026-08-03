@@ -1,0 +1,20 @@
+services:
+  vcds:
+    build: .
+    container_name: vcds
+    ports:
+      - "8000:8000"
+    volumes:
+      - vcds_data:/app/uploads
+      - vcds_originales:/app/originales
+      - vcds_config:/app/config.json
+      - vcds_auth:/app/auth.json
+    restart: unless-stopped
+    environment:
+      - DISPLAY=:99
+
+volumes:
+  vcds_data:
+  vcds_originales:
+  vcds_config:
+  vcds_auth:

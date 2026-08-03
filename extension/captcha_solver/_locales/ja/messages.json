@@ -1,0 +1,9 @@
+{
+     "extName": { "message": "Captcha Solver – Automate CAPTCHA Solving" },
+     "extShortName": { "message": "" },
+     "extDesc": { "message": "hCaptcha、reCAPTCHA、MTCaptchaを解決します。WebスクレイピングにはPlaywright、Puppeteer、NoCoding Data Scraperをサポートします。" },
+     "extAuthor": { "message": "miniRPA <service@minirpa.net>" },
+     "lbl_logo": { "message": "MiniRPA CAPTCHA ソルバー" },
+     "partner_nds": { "message": "NoCodingデータスクレイパー" }
+
+}

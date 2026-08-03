@@ -1,0 +1,8 @@
+{
+    "extName": { "message": "Captcha Solver: automate CAPTCHA solving" },
+    "extShortName": { "message": "" },
+    "extDesc": { "message": "solve hCaptcha, reCAPTCHA and MTCaptcha. Support Playwright, Puppeteer and NoCoding Data Scraper for web scraping." },
+    "extAuthor": { "message": "miniRPA <service@minirpa.net>" },
+    "lbl_logo": { "message": "MiniRPA Captcha Solver" },
+    "partner_nds": { "message": "NoCoding Data Scraper" }
+}

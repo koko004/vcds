@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+uploads/
+originales/
+chrome_profile/
+.pdfjs_tmp/
+*.log
+.DS_Store
+auth.json
+config.json
+favicon.zip
+*.crx

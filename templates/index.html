@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="/static/favicon.ico" sizes="48x48">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="manifest" href="/static/site.webmanifest">
+<title>VCDS</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+@keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
+.loading-bar { height:4px; background:linear-gradient(90deg,#2563eb,#7c3aed,#2563eb); background-size:200%; animation:slide 1.5s ease infinite; border-radius:4px; margin:1rem 0; }
+@keyframes slide { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+.loading-text { color:#666; font-size:0.9rem; margin-top:0.5rem; }
+.loading-text span { animation:pulse 1.5s ease infinite; }
+.spinner { display:inline-block; width:18px; height:18px; border:3px solid #ddd; border-top-color:#2563eb; border-radius:50%; animation:spin 0.8s linear infinite; margin-right:0.5rem; vertical-align:middle; }
+@keyframes spin { to{transform:rotate(360deg)} }
+.dato-input { width:100%; padding:0.5rem 0.75rem; border:1.5px solid #d1d5db; border-radius:8px; font-size:0.95rem; font-family:inherit; background:#fafafa; transition:border-color 0.2s, box-shadow 0.2s; box-sizing:border-box; }
+.dato-input:focus { outline:none; border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,0.15); background:#fff; }
+.dato-input:invalid, .dato-input.vacio { border-color:#f59e0b; }
+select.dato-input { cursor:pointer; }
+.process-log { background:#1e293b; color:#94a3b8; border-radius:8px; padding:0.75rem 1rem; margin-top:0.75rem; max-height:160px; overflow-y:auto; font-family:monospace; font-size:0.8rem; line-height:1.6; }
+.process-log .log-line { display:flex; gap:0.5rem; }
+.process-log .log-line::before { content:'›'; color:#475569; flex-shrink:0; }
+.process-log .log-line:last-child { color:#e2e8f0; }
+
+.batch-queue { margin-top:0.75rem; }
+.batch-item { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0.75rem; border-radius:8px; margin-bottom:0.4rem; background:#f8f9fa; font-size:0.85rem; border-left:3px solid #d1d5db; }
+.batch-item.procesando { border-left-color:#2563eb; background:#eff6ff; }
+.batch-item.completado { border-left-color:#16a34a; background:#f0fdf4; }
+.batch-item.omitido { border-left-color:#f59e0b; background:#fffbeb; }
+.batch-item.error { border-left-color:#dc2626; background:#fef2f2; }
+.batch-item .batch-icon { width:20px; text-align:center; flex-shrink:0; }
+.batch-item .batch-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.batch-item .batch-status { font-size:0.75rem; color:#666; flex-shrink:0; }
+.batch-progress { height:6px; background:#e5e7eb; border-radius:3px; margin-bottom:0.75rem; overflow:hidden; }
+.batch-progress-bar { height:100%; background:linear-gradient(90deg,#2563eb,#7c3aed); transition:width 0.3s; border-radius:3px; }
+.batch-summary { display:flex; gap:1rem; flex-wrap:wrap; margin-top:0.75rem; font-size:0.85rem; }
+.batch-summary span { display:flex; align-items:center; gap:0.3rem; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div style="display:flex;align-items:center;gap:1.25rem;margin-bottom:0.5rem">
+    <img src="/static/logo.png" alt="Logo VCDS" style="height:80px;width:auto;flex-shrink:0">
+    <div style="flex:1">
+      <h1>VCDS <span id="appVersion" style="font-size:0.5em;color:#999;font-weight:normal"></span></h1>
+      <p class="subtitle">Comprueba si un certificado es original o ha sido manipulado</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:0.75rem;flex-shrink:0">
+      <span id="userLabel" style="font-size:0.85rem;color:#666"></span>
+      <button class="btn" id="btnLogout" style="padding:0.4rem 1rem;font-size:0.85rem;background:#dc2626;color:#fff;border-radius:6px">Cerrar sesión</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>1. Subir documento(s)</h2>
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-zone-icon">📄</div>
+      <p><strong>Haz clic o arrastra uno o varios PDF aquí</strong></p>
+      <p style="font-size:0.8rem;color:#999;margin-top:0.25rem">Solo archivos PDF</p>
+    </div>
+    <input type="file" id="fileInput" accept=".pdf" multiple style="display:none">
+  </div>
+
+  <div class="card hidden" id="batchCard">
+    <h2>Cola de procesamiento</h2>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+      <span id="batchProgress" style="font-size:0.85rem;color:#666"></span>
+      <button class="btn btn-secondary" id="btnStopBatch" style="padding:0.3rem 0.8rem;font-size:0.8rem;display:none">Detener</button>
+    </div>
+    <div class="batch-progress" id="batchProgressBar"><div class="batch-progress-bar" id="batchProgressFill"></div></div>
+    <div class="batch-queue" id="batchQueue"></div>
+    <div class="batch-summary" id="batchSummary"></div>
+  </div>
+
+  <div class="card hidden" id="datosCard">
+    <h2>2. Datos extraídos del documento</h2>
+    <div class="datos-grid" id="datosGrid"></div>
+    <div class="mt-1">
+      <button class="btn btn-primary" id="btnVerificar">Verificar en el Ministerio</button>
+    </div>
+  </div>
+
+  <div class="card hidden" id="visorCard">
+    <h2>3. Visor del navegador</h2>
+    <div id="loadingState">
+      <div class="loading-bar"></div>
+      <p class="loading-text"><span class="spinner"></span> <span id="loadingMsg">Iniciando navegador...</span></p>
+    </div>
+    <div id="visorContent" style="display:none">
+      <p style="font-size:0.85rem;color:#666;margin-bottom:0.75rem">
+        El navegador ya ha rellenado el DNI automáticamente.
+        <strong>Haz clic en el captcha "No soy un robot"</strong> en la imagen de abajo y luego pulsa "Consultar".
+      </p>
+      <div id="visorWrapper" style="position:relative;cursor:crosshair;border:1px solid #ddd;border-radius:6px;overflow:hidden">
+        <img id="visorImg" src="" style="width:100%;display:block" alt="Visor del navegador">
+        <div id="visorLoading" style="position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.7);display:flex;align-items:center;justify-content:center;font-size:0.9rem;color:#666">Cargando...</div>
+      </div>
+      <div class="flex gap-1 mt-1" style="flex-wrap:wrap">
+        <input type="text" id="typeInput" placeholder="Escribir texto..." style="flex:1;padding:0.5rem 0.75rem;border:1px solid #ccc;border-radius:6px;font-size:0.9rem">
+        <button class="btn btn-secondary" id="btnType">Escribir</button>
+        <button class="btn btn-secondary" id="btnEnter">Enter</button>
+        <button class="btn btn-secondary" id="btnTab">Tab</button>
+        <button class="btn btn-secondary" id="btnRefresh">Refrescar</button>
+        <button class="btn btn-secondary" id="btnRestart" style="background:#f59e0b;color:#fff">Reiniciar navegador</button>
+        <button class="btn btn-secondary" id="btnBack" style="display:none;background:#2563eb;color:#fff">Volver al Ministerio</button>
+      </div>
+    </div>
+    <div class="mt-1">
+      <button class="btn btn-primary" id="btnListo" disabled>Esperando descarga automática...</button>
+    </div>
+  </div>
+
+  <div class="card hidden" id="resultadoCard">
+    <div id="resultadoContent"></div>
+  </div>
+
+  <div class="card" style="margin-top:1rem">
+    <details>
+      <summary style="cursor:pointer;font-weight:500;color:#666">⚙️ Configuración</summary>
+      <div style="margin-top:1rem">
+
+        <div style="padding:0.75rem;background:#f8f9fa;border-radius:6px;margin-bottom:0.75rem">
+          <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem">
+            <label style="font-size:0.9rem;font-weight:500">Extensión Captcha Solver:</label>
+            <button class="btn" id="btnToggleExt" style="padding:0.4rem 1rem;font-size:0.85rem;border-radius:20px;font-weight:600">...</button>
+            <button class="btn btn-secondary" id="btnOpenPopup" style="padding:0.4rem 0.8rem;font-size:0.85rem;display:none">Abrir popup</button>
+          </div>
+          <div class="flex gap-1 items-center">
+            <input type="password" id="configKeyExt" placeholder="Credit Key (CSK_...)" style="flex:1;padding:0.5rem 0.75rem;border:1px solid #ccc;border-radius:6px;font-size:0.9rem;font-family:monospace">
+            <button class="btn btn-primary" id="btnGuardarKeyExt">Guardar</button>
+          </div>
+        </div>
+
+        <div style="padding:0.75rem;background:#f8f9fa;border-radius:6px;margin-bottom:0.75rem">
+          <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem">
+            <label style="font-size:0.9rem;font-weight:500">Scrape.do Proxy (IP rotativa):</label>
+            <button class="btn" id="btnToggleScrape" style="padding:0.4rem 1rem;font-size:0.85rem;border-radius:20px;font-weight:600">...</button>
+            <span style="font-size:0.8rem;color:#888">1000 req/mes gratis</span>
+          </div>
+          <div class="flex gap-1 items-center">
+            <input type="password" id="configKeyScrape" placeholder="Scrape.do Token..." style="flex:1;padding:0.5rem 0.75rem;border:1px solid #ccc;border-radius:6px;font-size:0.9rem;font-family:monospace">
+            <button class="btn btn-primary" id="btnGuardarKeyScrape">Guardar</button>
+          </div>
+        </div>
+
+        <div style="padding:0.75rem;background:#f8f9fa;border-radius:6px;margin-bottom:0.75rem">
+          <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem">
+            <label style="font-size:0.9rem;font-weight:500">2Captcha (Resolver captcha automáticamente):</label>
+            <button class="btn" id="btnToggle2Captcha" style="padding:0.4rem 1rem;font-size:0.85rem;border-radius:20px;font-weight:600">...</button>
+          </div>
+          <div class="flex gap-1 items-center">
+            <input type="password" id="configKey2Captcha" placeholder="2Captcha API Key..." style="flex:1;padding:0.5rem 0.75rem;border:1px solid #ccc;border-radius:6px;font-size:0.9rem;font-family:monospace">
+            <button class="btn btn-primary" id="btnGuardarKey2Captcha">Guardar</button>
+          </div>
+        </div>
+
+        <p id="configStatus" style="font-size:0.8rem;margin-top:0.5rem;color:#666"></p>
+        <div style="padding:0.75rem;background:#f8f9fa;border-radius:6px;margin-bottom:0.75rem">
+          <label style="font-size:0.9rem;font-weight:500;display:block;margin-bottom:0.5rem">Cambiar contraseña</label>
+          <div style="display:flex;flex-direction:column;gap:0.5rem">
+            <input type="password" id="currentPassword" placeholder="Contraseña actual" style="padding:0.5rem 0.75rem;border:1px solid #ccc;border-radius:6px;font-size:0.9rem">
+            <input type="password" id="newPassword" placeholder="Nueva contraseña (mín. 6 caracteres)" style="padding:0.5rem 0.75rem;border:1px solid #ccc;border-radius:6px;font-size:0.9rem">
+            <button class="btn btn-primary" id="btnChangePass" style="align-self:flex-start">Actualizar contraseña</button>
+          </div>
+          <span id="passStatus" style="font-size:0.8rem;margin-top:0.5rem;color:#666"></span>
+        </div>
+
+        <div style="margin-top:1rem;padding-top:0.75rem;border-top:1px solid #e5e7eb">
+          <button class="btn" id="btnClearUploads" style="padding:0.4rem 1rem;font-size:0.85rem;background:#dc2626;color:#fff;border-radius:6px">Limpiar uploads</button>
+          <span id="clearStatus" style="font-size:0.8rem;margin-left:0.5rem;color:#666"></span>
+        </div>
+      </div>
+    </details>
+  </div>
+</div>
+
+<script>
+const btnLogout = document.getElementById('btnLogout');
+const userLabel = document.getElementById('userLabel');
+
+fetch('/api/auth/check').then(r=>r.json()).then(d=>{
+  if(!d.authenticated){ window.location.href='/login'; return; }
+  userLabel.textContent = d.username;
+});
+
+btnLogout.addEventListener('click', async ()=>{
+  await fetch('/api/auth/logout',{method:'POST'});
+  window.location.href='/login';
+});
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const datosCard = document.getElementById('datosCard');
+const datosGrid = document.getElementById('datosGrid');
+const btnVerificar = document.getElementById('btnVerificar');
+const visorCard = document.getElementById('visorCard');
+const visorImg = document.getElementById('visorImg');
+const visorLoading = document.getElementById('visorLoading');
+const loadingState = document.getElementById('loadingState');
+const visorContent = document.getElementById('visorContent');
+const loadingMsg = document.getElementById('loadingMsg');
+const typeInput = document.getElementById('typeInput');
+const btnType = document.getElementById('btnType');
+const btnEnter = document.getElementById('btnEnter');
+const btnTab = document.getElementById('btnTab');
+const btnRefresh = document.getElementById('btnRefresh');
+const btnRestart = document.getElementById('btnRestart');
+const btnBack = document.getElementById('btnBack');
+const btnListo = document.getElementById('btnListo');
+const resultadoCard = document.getElementById('resultadoCard');
+const resultadoContent = document.getElementById('resultadoContent');
+const batchCard = document.getElementById('batchCard');
+const batchQueue = document.getElementById('batchQueue');
+const batchProgress = document.getElementById('batchProgress');
+const batchProgressBar = document.getElementById('batchProgressFill');
+const batchSummary = document.getElementById('batchSummary');
+const btnStopBatch = document.getElementById('btnStopBatch');
+
+let currentId = null;
+let pollInterval = null;
+let screenshotInterval = null;
+let visorScale = 1;
+let batchStop = false;
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) onFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', (e) => {
+  if (e.target.files.length) onFiles(e.target.files);
+});
+
+function onFiles(files) {
+  const pdfs = [];
+  for (const f of files) {
+    if (f.name.toLowerCase().endsWith('.pdf')) pdfs.push(f);
+  }
+  if (!pdfs.length) { alert('Solo se aceptan archivos PDF'); return; }
+  if (pdfs.length === 1) {
+    handleFile(pdfs[0]);
+  } else {
+    startBatch(pdfs);
+  }
+}
+
+let batchItems = [];
+let batchIndex = 0;
+
+function startBatch(files) {
+  batchItems = files.map(f => ({
+    file: f,
+    name: f.name,
+    status: 'pendiente',
+    id: null,
+    datos: null,
+    resultado: null,
+    error: null,
+  }));
+  batchIndex = 0;
+  batchStop = false;
+
+  dropZone.classList.add('hidden');
+  batchCard.classList.remove('hidden');
+  btnStopBatch.style.display = 'inline-block';
+  batchSummary.innerHTML = '';
+  renderBatchQueue();
+
+  processBatch();
+}
+
+function renderBatchQueue() {
+  const icons = {
+    pendiente: '○',
+    extrayendo: '<span class="spinner" style="width:14px;height:14px;border-width:2px;margin:0"></span>',
+    verificando: '<span class="spinner" style="width:14px;height:14px;border-width:2px;margin:0;border-top-color:#2563eb"></span>',
+    completado: '✅',
+    omitido: '🔇',
+    error: '❗',
+  };
+  const statusText = {
+    pendiente: 'Pendiente',
+    extrayendo: 'Extrayendo datos...',
+    verificando: 'Verificando...',
+    completado: 'Completado',
+    omitido: 'Omitido - datos incompletos',
+    error: 'Error',
+  };
+
+  batchQueue.innerHTML = batchItems.map((item, i) => {
+    const active = i === batchIndex && item.status !== 'pendiente';
+    const cls = item.status === 'pendiente' ? '' : item.status;
+    const txt = item.status === 'error' && item.error ? `Error: ${item.error}` : (statusText[item.status] || item.status);
+    return `<div class="batch-item ${cls}" id="batchItem${i}" title="${item.error || ''}">
+      <span class="batch-icon">${icons[item.status] || '○'}</span>
+      <span class="batch-name" title="${item.name}">${item.name}</span>
+      <span class="batch-status" style="${item.status === 'error' ? 'color:#dc2626;font-weight:600' : ''}">${txt}</span>
+    </div>`;
+  }).join('');
+
+  const done = batchItems.filter(i => ['completado','omitido','error'].includes(i.status)).length;
+  const pct = batchItems.length ? Math.round(done / batchItems.length * 100) : 0;
+  batchProgressBar.style.width = pct + '%';
+  batchProgress.textContent = `${done} / ${batchItems.length} archivos procesados`;
+}
+
+async function processBatch() {
+  for (batchIndex = 0; batchIndex < batchItems.length; batchIndex++) {
+    if (batchStop) break;
+    const item = batchItems[batchIndex];
+    if (item.status !== 'pendiente') continue;
+
+    item.status = 'extrayendo';
+    renderBatchQueue();
+
+    try {
+      const form = new FormData();
+      form.append('file', item.file);
+      const res = await fetch('/api/upload-sse', { method: 'POST', body: form });
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let datos = null;
+      let id = null;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const msg = JSON.parse(line.slice(6));
+            if (msg.type === 'done') { id = msg.id; datos = msg.datos; }
+          } catch (e) {}
+        }
+      }
+
+      if (!datos || !id) {
+        item.status = 'error';
+        item.error = 'Error en la extracción';
+        renderBatchQueue();
+        continue;
+      }
+
+      const falta = !datos.nombre || !datos.dni || !datos.csv || !datos.fecha_emision || datos.no_consta === undefined || datos.no_consta === null;
+      if (falta) {
+        item.status = 'omitido';
+        item.datos = datos;
+        item.id = id;
+        renderBatchQueue();
+        continue;
+      }
+
+      item.id = id;
+      item.datos = datos;
+      item.status = 'verificando';
+      renderBatchQueue();
+
+      const verifyRes = await fetch(`/api/verify/${id}`, { method: 'POST' });
+      if (!verifyRes.ok) {
+        const errData = await verifyRes.json();
+        item.status = 'error';
+        item.error = errData.detail || 'Error al iniciar verificación';
+        renderBatchQueue();
+        continue;
+      }
+
+      const result = await waitForVerification(id);
+      if (result) {
+        item.resultado = result;
+        item.status = 'completado';
+      } else {
+        item.status = 'error';
+        item.error = 'Timeout o error en verificación';
+      }
+      renderBatchQueue();
+    } catch (e) {
+      item.status = 'error';
+      item.error = e.message || 'Error desconocido';
+      renderBatchQueue();
+    }
+  }
+
+  btnStopBatch.style.display = 'none';
+  showBatchSummary();
+}
+
+function waitForVerification(id) {
+  return new Promise((resolve) => {
+    let polls = 0;
+    const maxPolls = 300;
+    const interval = setInterval(async () => {
+      polls++;
+      if (polls > maxPolls || batchStop) {
+        clearInterval(interval);
+        resolve(null);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/verify/${id}/status`);
+        const data = await res.json();
+        if (data.estado === 'completo') {
+          clearInterval(interval);
+          const rRes = await fetch(`/api/verify/${id}/result`);
+          const rData = await rRes.json();
+          resolve(rData.resultado || null);
+        } else if (data.estado === 'error') {
+          clearInterval(interval);
+          const item = batchItems.find(i => i.id === id);
+          if (item) { item.status = 'error'; item.error = data.mensaje; }
+          renderBatchQueue();
+          resolve(null);
+        }
+      } catch (e) {}
+    }, 1000);
+  });
+}
+
+function showBatchSummary() {
+  const completados = batchItems.filter(i => i.status === 'completado').length;
+  const omitidos = batchItems.filter(i => i.status === 'omitido').length;
+  const errores = batchItems.filter(i => i.status === 'error').length;
+  const originales = batchItems.filter(i => i.resultado?.veredicto === 'original').length;
+  const manipulados = batchItems.filter(i => i.resultado?.veredicto === 'manipulado').length;
+  const dudosos = batchItems.filter(i => i.resultado?.veredicto === 'dudoso').length;
+
+  let html = `<span>📊 <strong>${completados}</strong> verificados</span>`;
+  if (originales) html += `<span>✅ <strong>${originales}</strong> originales</span>`;
+  if (manipulados) html += `<span>❌ <strong>${manipulados}</strong> manipulados</span>`;
+  if (dudosos) html += `<span>⚠️ <strong>${dudosos}</strong> dudosos</span>`;
+  if (omitidos) html += `<span>🔇 <strong>${omitidos}</strong> omitidos</span>`;
+  if (errores) html += `<span>❗ <strong>${errores}</strong> errores</span>`;
+  html += `<button class="btn btn-primary" onclick="location.reload()" style="margin-left:auto">Nueva verificación</button>`;
+  batchSummary.innerHTML = html;
+
+  const results = batchItems.filter(i => i.resultado);
+  if (results.length) {
+    let detailsHtml = '<div style="margin-top:1rem">';
+    detailsHtml += '<h3 style="font-size:0.85rem;color:#666;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem">Resultados detallados</h3>';
+    for (const item of results) {
+      const r = item.resultado;
+      const iconos = { original: '✅', manipulado: '❌', dudoso: '⚠️' };
+      const colores = { original: '#16a34a', manipulado: '#dc2626', dudoso: '#f59e0b' };
+      detailsHtml += `<div class="batch-item" style="border-left-color:${colores[r.veredicto] || '#ccc'};cursor:pointer" onclick="showDetailResult('${item.id}')">
+        <span class="batch-icon">${iconos[r.veredicto] || '?'}</span>
+        <span class="batch-name">${item.name}</span>
+        <span class="batch-status" style="color:${colores[r.veredicto]}">${r.veredicto.toUpperCase()}</span>
+      </div>`;
+    }
+    detailsHtml += '</div>';
+    batchSummary.innerHTML += detailsHtml;
+  }
+}
+
+async function showDetailResult(id) {
+  try {
+    const res = await fetch(`/api/verify/${id}/result`);
+    const data = await res.json();
+    if (res.ok && data.resultado) mostrarResultado(data.resultado, id);
+  } catch (e) {}
+}
+
+async function handleFile(file) {
+  if (!file.name.toLowerCase().endsWith('.pdf')) {
+    alert('Solo se aceptan archivos PDF');
+    return;
+  }
+  dropZone.innerHTML = `
+    <div class="spinner" style="width:24px;height:24px;border-width:3px"></div>
+    <p style="margin-top:0.75rem;font-weight:500">Procesando ${file.name}...</p>
+    <div class="process-log" id="processLog"></div>
+  `;
+  dropZone.style.cursor = 'default';
+  const logEl = document.getElementById('processLog');
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch('/api/upload-sse', { method: 'POST', body: form });
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const msg = JSON.parse(line.slice(6));
+          if (msg.type === 'log') {
+            const div = document.createElement('div');
+            div.className = 'log-line';
+            div.textContent = msg.message;
+            logEl.appendChild(div);
+            logEl.scrollTop = logEl.scrollHeight;
+          } else if (msg.type === 'done') {
+            currentId = msg.id;
+            mostrarDatos(msg.datos);
+          }
+        } catch (e) {}
+      }
+    }
+  } catch (e) {
+    alert('Error de conexion');
+    location.reload();
+  }
+}
+
+function mostrarDatos(datos) {
+  const campos = [
+    { label: 'Nombre', key: 'nombre', type: 'text' },
+    { label: 'DNI / NIE', key: 'dni', type: 'text' },
+    { label: 'CSV', key: 'csv', type: 'text' },
+    { label: 'Fecha de emisión', key: 'fecha_emision', type: 'text' },
+    { label: 'NO CONSTA', key: 'no_consta', type: 'select' },
+  ];
+  datosGrid.innerHTML = campos.map(c => {
+    const val = datos[c.key];
+    const empty = val === undefined || val === null || val === '';
+    if (c.type === 'select') {
+      return `<div class="dato-item">
+        <label>${c.label}</label>
+        <select class="dato-input" data-key="${c.key}">
+          <option value="true"${val ? ' selected' : ''}>Sí</option>
+          <option value="false"${!val ? ' selected' : ''}>No</option>
+        </select>
+      </div>`;
+    }
+    return `<div class="dato-item">
+      <label>${c.label}</label>
+      <input type="text" class="dato-input" data-key="${c.key}" value="${empty ? '' : val}" placeholder="${empty ? 'No detectado' : ''}">
+    </div>`;
+  }).join('');
+  datosCard.classList.remove('hidden');
+  visorCard.classList.add('hidden');
+  resultadoCard.classList.add('hidden');
+  window.scrollTo({ top: datosCard.offsetTop - 20, behavior: 'smooth' });
+}
+
+btnStopBatch.addEventListener('click', () => {
+  batchStop = true;
+  btnStopBatch.textContent = 'Deteniendo...';
+  btnStopBatch.disabled = true;
+});
+
+btnVerificar.addEventListener('click', iniciarVerificacion);
+
+async function iniciarVerificacion() {
+  btnVerificar.disabled = true;
+  btnVerificar.textContent = 'Guardando cambios...';
+
+  const inputs = datosGrid.querySelectorAll('.dato-input');
+  const datosEditados = {};
+  inputs.forEach(inp => {
+    const key = inp.dataset.key;
+    let val = inp.value.trim();
+    if (key === 'no_consta') {
+      val = val === 'true';
+    }
+    datosEditados[key] = val || null;
+  });
+  await fetch(`/api/verify/${currentId}/datos`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(datosEditados),
+  });
+
+  btnVerificar.textContent = 'Iniciando...';
+  datosCard.classList.add('hidden');
+  visorCard.classList.remove('hidden');
+  resultadoCard.classList.add('hidden');
+  loadingState.style.display = 'block';
+  visorContent.style.display = 'none';
+  btnListo.disabled = true;
+  btnListo.textContent = 'Esperando descarga automática...';
+
+  let msgIdx = 0;
+  const msgs = useScrapedo
+    ? ['Conectando con Scrape.do...', 'Rotando IP...', 'Navegando al Ministerio...', 'Rellenando formulario...']
+    : extensionEnabled
+    ? ['Iniciando navegador...', 'Cargando extensión...', 'Navegando al Ministerio...', 'Rellenando formulario...']
+    : ['Iniciando navegador...', 'Navegando al Ministerio de Justicia...', 'Rellenando campos del formulario...', 'Esperando respuesta del servidor...'];
+  const msgInterval = setInterval(() => {
+    msgIdx = Math.min(msgIdx + 1, msgs.length - 1);
+    loadingMsg.textContent = msgs[msgIdx];
+  }, 3000);
+
+  const res = await fetch(`/api/verify/${currentId}`, { method: 'POST' });
+  const data = await res.json();
+  clearInterval(msgInterval);
+
+  if (!res.ok) {
+    loadingState.style.display = 'none';
+    alert(data.detail || 'Error');
+    return;
+  }
+
+  pollStatus();
+  startScreenshot();
+}
+
+function pollStatus() {
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(async () => {
+    const res = await fetch(`/api/verify/${currentId}/status`);
+    const data = await res.json();
+    const estado = data.estado;
+    if (estado === 'completo') {
+      clearInterval(pollInterval);
+      clearInterval(screenshotInterval);
+      btnListo.textContent = 'Verificación completada';
+      btnListo.disabled = false;
+      cargarResultado();
+    } else if (estado === 'error') {
+      clearInterval(pollInterval);
+      clearInterval(screenshotInterval);
+      loadingState.style.display = 'none';
+      visorContent.style.display = 'none';
+      btnListo.textContent = 'Error: ' + data.mensaje;
+      alert('Error: ' + data.mensaje);
+    } else if (estado === 'resolviendo_captcha') {
+      const logs = (data.logs || []).slice(-8).join('\n');
+      btnListo.textContent = 'Resolviendo captcha con2Captcha...';
+      if (logs) {
+        btnListo.textContent += '\n' + logs.split('\n').pop();
+      }
+    } else if (estado === 'esperando_captcha') {
+      if (loadingState.style.display !== 'none') {
+        loadingState.style.display = 'none';
+        visorContent.style.display = 'block';
+      }
+      const logs = (data.logs || []).slice(-5).join('\n');
+      btnListo.textContent = 'Resuelve el captcha en el visor de arriba';
+      if (logs) {
+        btnListo.textContent += '\n' + logs.split('\n').pop();
+      }
+    }
+  }, 1000);
+}
+
+function startScreenshot() {
+  if (screenshotInterval) clearInterval(screenshotInterval);
+  async function fetchScreenshot() {
+    try {
+      const res = await fetch(`/api/verify/${currentId}/screenshot`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.imagen) {
+        visorImg.src = data.imagen;
+        visorLoading.style.display = 'none';
+        if (loadingState.style.display !== 'none') {
+          loadingState.style.display = 'none';
+          visorContent.style.display = 'block';
+        }
+      }
+    } catch (e) {}
+  }
+  fetchScreenshot();
+  screenshotInterval = setInterval(fetchScreenshot, 1500);
+}
+
+visorImg.addEventListener('load', () => {
+  visorScale = visorImg.naturalWidth / visorImg.offsetWidth;
+});
+
+visorImg.addEventListener('click', async (e) => {
+  const rect = visorImg.getBoundingClientRect();
+  const x = Math.round((e.clientX - rect.left) * visorScale);
+  const y = Math.round((e.clientY - rect.top) * visorScale);
+  try {
+    await fetch(`/api/verify/${currentId}/click`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ x: x, y: y }),
+    });
+  } catch (err) {}
+});
+
+btnType.addEventListener('click', async () => {
+  const texto = typeInput.value;
+  if (!texto) return;
+  try {
+    await fetch(`/api/verify/${currentId}/type`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texto: texto }),
+    });
+  } catch (err) {}
+  typeInput.value = '';
+});
+
+typeInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') btnType.click();
+});
+
+btnEnter.addEventListener('click', async () => {
+  try {
+    await fetch(`/api/verify/${currentId}/key`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tecla: 'Enter' }),
+    });
+  } catch (err) {}
+});
+
+btnTab.addEventListener('click', async () => {
+  try {
+    await fetch(`/api/verify/${currentId}/key`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tecla: 'Tab' }),
+    });
+  } catch (err) {}
+});
+
+btnRefresh.addEventListener('click', async () => {
+  try {
+    const res = await fetch(`/api/verify/${currentId}/screenshot`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.imagen) visorImg.src = data.imagen;
+    }
+  } catch (e) {}
+});
+
+btnRestart.addEventListener('click', async () => {
+  if (!currentId) return;
+  if (!confirm('¿Reiniciar el navegador? Se cerrará y abrirá de nuevo.')) return;
+  btnRestart.disabled = true;
+  btnRestart.textContent = 'Reiniciando...';
+  loadingState.style.display = 'block';
+  visorContent.style.display = 'none';
+  btnListo.disabled = true;
+  btnListo.textContent = 'Reiniciando navegador...';
+  try {
+    await fetch(`/api/verify/${currentId}/restart`, { method: 'POST' });
+  } catch (e) {}
+  btnRestart.disabled = false;
+  btnRestart.textContent = 'Reiniciar navegador';
+});
+
+const configKeyExt = document.getElementById('configKeyExt');
+const btnGuardarKeyExt = document.getElementById('btnGuardarKeyExt');
+const configKeyScrape = document.getElementById('configKeyScrape');
+const btnGuardarKeyScrape = document.getElementById('btnGuardarKeyScrape');
+const configKey2Captcha = document.getElementById('configKey2Captcha');
+const btnGuardarKey2Captcha = document.getElementById('btnGuardarKey2Captcha');
+const configStatus = document.getElementById('configStatus');
+const btnToggleExt = document.getElementById('btnToggleExt');
+const btnOpenPopup = document.getElementById('btnOpenPopup');
+const btnToggleScrape = document.getElementById('btnToggleScrape');
+const btnToggle2Captcha = document.getElementById('btnToggle2Captcha');
+
+let extensionEnabled = false;
+let useScrapedo = false;
+let captcha2cEnabled = false;
+
+function updateExtUI() {
+  btnToggleExt.textContent = extensionEnabled ? 'ON' : 'OFF';
+  btnToggleExt.style.background = extensionEnabled ? '#16a34a' : '#dc2626';
+  btnToggleExt.style.color = '#fff';
+  btnOpenPopup.style.display = extensionEnabled ? 'inline-block' : 'none';
+}
+
+function updateScrapeUI() {
+  btnToggleScrape.textContent = useScrapedo ? 'ON' : 'OFF';
+  btnToggleScrape.style.background = useScrapedo ? '#16a34a' : '#dc2626';
+  btnToggleScrape.style.color = '#fff';
+}
+
+function update2CaptchaUI() {
+  btnToggle2Captcha.textContent = captcha2cEnabled ? 'ON' : 'OFF';
+  btnToggle2Captcha.style.background = captcha2cEnabled ? '#16a34a' : '#dc2626';
+  btnToggle2Captcha.style.color = '#fff';
+}
+
+fetch('/api/config/full').then(r => r.json()).then(data => {
+  extensionEnabled = data.extension_enabled;
+  useScrapedo = data.use_scrapedo;
+  captcha2cEnabled = data.captcha_2captcha_enabled || false;
+  updateExtUI();
+  updateScrapeUI();
+  update2CaptchaUI();
+  if (data.version) {
+    document.getElementById('appVersion').textContent = 'v' + data.version;
+  }
+  if (data.has_key) {
+    configStatus.textContent = 'Key configurada: ' + data.captcha_key_masked;
+    configStatus.style.color = '#16a34a';
+  }
+});
+
+btnToggleExt.addEventListener('click', async () => {
+  btnToggleExt.disabled = true;
+  extensionEnabled = !extensionEnabled;
+  updateExtUI();
+  await fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ extension_enabled: extensionEnabled }),
+  });
+  btnToggleExt.disabled = false;
+  configStatus.textContent = extensionEnabled ? 'Extensión activada (se aplicará en la siguiente verificación)' : 'Extensión desactivada (se aplicará en la siguiente verificación)';
+  configStatus.style.color = '#2563eb';
+});
+
+btnToggleScrape.addEventListener('click', async () => {
+  btnToggleScrape.disabled = true;
+  useScrapedo = !useScrapedo;
+  updateScrapeUI();
+  await fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ use_scrapedo: useScrapedo }),
+  });
+  btnToggleScrape.disabled = false;
+  configStatus.textContent = useScrapedo ? 'Scrape.do activado (IP rotativa + anti-bot)' : 'Scrape.do desactivado';
+  configStatus.style.color = '#2563eb';
+});
+
+btnToggle2Captcha.addEventListener('click', async () => {
+  btnToggle2Captcha.disabled = true;
+  captcha2cEnabled = !captcha2cEnabled;
+  update2CaptchaUI();
+  await fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ captcha_2captcha_enabled: captcha2cEnabled }),
+  });
+  btnToggle2Captcha.disabled = false;
+  configStatus.textContent = captcha2cEnabled ? '2Captcha activado (resolución automática de captcha)' : '2Captcha desactivado (captcha manual)';
+  configStatus.style.color = '#2563eb';
+});
+
+btnOpenPopup.addEventListener('click', async () => {
+  if (!currentId) { alert('Primero inicia una verificación'); return; }
+  const res = await fetch(`/api/verify/${currentId}/open-extension`, { method: 'POST' });
+  const data = await res.json();
+  configStatus.textContent = data.message || 'Popup abierto';
+  configStatus.style.color = '#16a34a';
+  btnBack.style.display = 'inline-block';
+  loadingState.style.display = 'none';
+  visorContent.style.display = 'block';
+  visorLoading.style.display = 'none';
+  visorImg.src = '';
+});
+
+btnBack.addEventListener('click', async () => {
+  btnBack.style.display = 'none';
+  loadingState.style.display = 'block';
+  visorContent.style.display = 'none';
+  visorImg.src = '';
+  await new Promise(r => setTimeout(r, 500));
+  loadingState.style.display = 'none';
+  visorContent.style.display = 'block';
+});
+
+btnGuardarKeyExt.addEventListener('click', async () => {
+  const key = configKeyExt.value.trim();
+  if (!key) { configStatus.textContent = 'Introduce la key de la extensión'; return; }
+  const res = await fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ extension_key: key }),
+  });
+  const data = await res.json();
+  if (data.ok) {
+    configStatus.textContent = 'Key de extensión guardada';
+    configStatus.style.color = '#16a34a';
+    configKeyExt.value = '';
+  }
+});
+
+btnGuardarKeyScrape.addEventListener('click', async () => {
+  const key = configKeyScrape.value.trim();
+  if (!key) { configStatus.textContent = 'Introduce el token de Scrape.do'; return; }
+  const res = await fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scrape_do_token: key }),
+  });
+  const data = await res.json();
+  if (data.ok) {
+    configStatus.textContent = 'Token de Scrape.do guardado';
+    configStatus.style.color = '#16a34a';
+    configKeyScrape.value = '';
+  }
+});
+
+btnGuardarKey2Captcha.addEventListener('click', async () => {
+  const key = configKey2Captcha.value.trim();
+  if (!key) { configStatus.textContent = 'Introduce la API key de2Captcha'; return; }
+  const res = await fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ captcha_key: key }),
+  });
+  const data = await res.json();
+  if (data.ok) {
+    configStatus.textContent = 'API key de2Captcha guardada: ' + data.captcha_key_masked;
+    configStatus.style.color = '#16a34a';
+    configKey2Captcha.value = '';
+  }
+});
+
+const btnChangePass = document.getElementById('btnChangePass');
+const passStatus = document.getElementById('passStatus');
+const currentPassword = document.getElementById('currentPassword');
+const newPassword = document.getElementById('newPassword');
+
+btnChangePass.addEventListener('click', async ()=>{
+  const cur = currentPassword.value.trim();
+  const np = newPassword.value.trim();
+  if(!cur || !np){ passStatus.textContent='Rellena ambos campos'; passStatus.style.color='#dc2626'; return; }
+  if(np.length < 6){ passStatus.textContent='Mínimo 6 caracteres'; passStatus.style.color='#dc2626'; return; }
+  btnChangePass.disabled = true;
+  try {
+    const csrfRes = await fetch('/api/auth/csrf').then(r=>r.json());
+    const res = await fetch('/api/auth/change-password',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({current_password:cur, new_password:np, csrf_token:csrfRes.token}),
+    });
+    const data = await res.json();
+    if(res.ok){
+      passStatus.textContent='Contraseña actualizada';
+      passStatus.style.color='#16a34a';
+      currentPassword.value='';
+      newPassword.value='';
+    } else {
+      passStatus.textContent=data.detail||'Error';
+      passStatus.style.color='#dc2626';
+    }
+  } catch(e){
+    passStatus.textContent='Error de conexión';
+    passStatus.style.color='#dc2626';
+  }
+  btnChangePass.disabled = false;
+});
+
+const btnClearUploads = document.getElementById('btnClearUploads');
+const clearStatus = document.getElementById('clearStatus');
+
+btnClearUploads.addEventListener('click', async () => {
+  if (!confirm('¿Eliminar todos los archivos subidos y descargados?')) return;
+  btnClearUploads.disabled = true;
+  btnClearUploads.textContent = 'Limpiando...';
+  try {
+    const res = await fetch('/api/clear-uploads', { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+      clearStatus.textContent = `${data.eliminados} archivos eliminados`;
+      clearStatus.style.color = '#16a34a';
+      currentId = null;
+    } else {
+      clearStatus.textContent = 'Error al limpiar';
+      clearStatus.style.color = '#dc2626';
+    }
+  } catch (e) {
+    clearStatus.textContent = 'Error de conexión';
+    clearStatus.style.color = '#dc2626';
+  }
+  btnClearUploads.disabled = false;
+  btnClearUploads.textContent = 'Limpiar uploads';
+});
+
+async function cargarResultado() {
+  const res = await fetch(`/api/verify/${currentId}/result`);
+  const data = await res.json();
+  if (!res.ok) { alert(data.detail); return; }
+  mostrarResultado(data.resultado);
+}
+
+function mostrarResultado(r, downloadId) {
+  const vid = downloadId || currentId;
+  visorCard.classList.add('hidden');
+  resultadoCard.classList.remove('hidden');
+  resultadoCard.className = 'card result-card ' + r.veredicto;
+
+  const iconos = { original: '✅', manipulado: '❌', dudoso: '⚠️' };
+  const titulos = { original: 'DOCUMENTO ORIGINAL', manipulado: 'DOCUMENTO MANIPULADO', dudoso: 'NO SE PUDO DETERMINAR' };
+
+  const compDatos = r.comparacion_datos;
+  const compTexto = r.comparacion_texto;
+
+  const camposHtml = compDatos.campos ? Object.entries(compDatos.campos).map(([k, v]) => {
+    const ok = v.coincide;
+    const renderVal = (val) => {
+      if (typeof val === 'boolean') return val ? 'Sí' : 'No';
+      return val || '—';
+    };
+    return `<div class="campo-comp ${ok ? 'ok' : 'fail'}">
+      <span><strong>${k}:</strong> ${renderVal(v.usuario)} → ${renderVal(v.original)}</span>
+      <span class="badge ${ok ? 'badge-ok' : 'badge-fail'}">${ok ? 'OK' : 'NO COINCIDE'}</span>
+    </div>`;
+  }).join('') : '<p>No se pudieron comparar</p>';
+
+  const textoOk = compTexto.coincide;
+  const textoPct = (compTexto.ratio * 100).toFixed(1);
+
+  resultadoContent.innerHTML = `
+    <div class="veredicto"><span class="icon">${iconos[r.veredicto]}</span> ${titulos[r.veredicto]}</div>
+    <p style="margin-bottom:1rem;color:#555">${r.mensaje}</p>
+    <div class="detalles">
+      <h3>Comparación de datos</h3>
+      <div style="margin-top:0.5rem">${camposHtml}</div>
+      <h3>Comparación de texto</h3>
+      <div class="campo-comp ${textoOk ? 'ok' : 'fail'}" style="margin-top:0.5rem">
+        <span>Coincidencia textual: <strong>${textoPct}%</strong></span>
+        <span class="badge ${textoOk ? 'badge-ok' : 'badge-fail'}">${textoOk ? 'OK' : 'DIFIERE'}</span>
+      </div>
+    </div>
+    <div class="flex gap-1 mt-1" style="flex-wrap:wrap">
+      <a href="/api/verify/${vid}/download-original" class="btn btn-success" target="_blank">Descargar original</a>
+      <a href="/api/verify/${vid}/download-usuario" class="btn btn-secondary" target="_blank">Descargar usuario</a>
+      <button class="btn btn-primary" onclick="location.reload()">Nueva verificación</button>
+    </div>
+  `;
+  window.scrollTo({ top: resultadoCard.offsetTop - 20, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
