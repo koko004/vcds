@@ -1,6 +1,6 @@
 services:
   vcds:
-    build: .
+    image: koko004/vcds:latest
     container_name: vcds
     ports:
       - "8000:8000"
@@ -12,6 +12,14 @@ services:
     restart: unless-stopped
     environment:
       - DISPLAY=:99
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 3600 vcds
+    restart: unless-stopped
 
 volumes:
   vcds_data:
