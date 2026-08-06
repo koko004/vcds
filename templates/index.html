@@ -17,6 +17,14 @@
 .loading-text span { animation:pulse 1.5s ease infinite; }
 .spinner { display:inline-block; width:18px; height:18px; border:3px solid #ddd; border-top-color:#2563eb; border-radius:50%; animation:spin 0.8s linear infinite; margin-right:0.5rem; vertical-align:middle; }
 @keyframes spin { to{transform:rotate(360deg)} }
+.btn-ocr { background:#7c3aed; color:#fff; border:none; padding:0.6rem 1.2rem; border-radius:8px; font-size:0.9rem; font-weight:600; cursor:pointer; transition:all 0.3s; position:relative; overflow:hidden; }
+.btn-ocr:hover { background:#6d28d9; transform:translateY(-1px); box-shadow:0 4px 12px rgba(124,58,237,0.4); }
+.btn-ocr:disabled { background:#a78bfa; cursor:not-allowed; transform:none; box-shadow:none; }
+.btn-ocr.processing { pointer-events:none; }
+.btn-ocr.processing::after { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent); animation:shimmer 1.5s infinite; }
+@keyframes shimmer { 100%{left:100%} }
+.ocr-status { display:flex; align-items:center; gap:0.5rem; margin-top:0.75rem; padding:0.75rem 1rem; background:#f5f3ff; border:1px solid #c4b5fd; border-radius:8px; font-size:0.85rem; color:#5b21b6; }
+.ocr-status .ocr-spinner { width:16px; height:16px; border:2px solid #c4b5fd; border-top-color:#7c3aed; border-radius:50%; animation:spin 0.8s linear infinite; flex-shrink:0; }
 .dato-input { width:100%; padding:0.5rem 0.75rem; border:1.5px solid #d1d5db; border-radius:8px; font-size:0.95rem; font-family:inherit; background:#fafafa; transition:border-color 0.2s, box-shadow 0.2s; box-sizing:border-box; }
 .dato-input:focus { outline:none; border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,0.15); background:#fff; }
 .dato-input:invalid, .dato-input.vacio { border-color:#f59e0b; }
@@ -79,8 +87,13 @@ select.dato-input { cursor:pointer; }
   <div class="card hidden" id="datosCard">
     <h2>2. Datos extraídos del documento</h2>
     <div class="datos-grid" id="datosGrid"></div>
-    <div class="mt-1">
+    <div id="ocrStatus" class="ocr-status hidden">
+      <div class="ocr-spinner"></div>
+      <span id="ocrStatusMsg">Procesando documento...</span>
+    </div>
+    <div class="mt-1" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center">
       <button class="btn btn-primary" id="btnVerificar">Verificar en el Ministerio</button>
+      <button class="btn-ocr" id="btnReextractOcr">Reintentar con OCR</button>
     </div>
   </div>
 
@@ -197,6 +210,9 @@ const fileInput = document.getElementById('fileInput');
 const datosCard = document.getElementById('datosCard');
 const datosGrid = document.getElementById('datosGrid');
 const btnVerificar = document.getElementById('btnVerificar');
+const btnReextractOcr = document.getElementById('btnReextractOcr');
+const ocrStatus = document.getElementById('ocrStatus');
+const ocrStatusMsg = document.getElementById('ocrStatusMsg');
 const visorCard = document.getElementById('visorCard');
 const visorImg = document.getElementById('visorImg');
 const visorLoading = document.getElementById('visorLoading');
@@ -555,6 +571,53 @@ btnStopBatch.addEventListener('click', () => {
 });
 
 btnVerificar.addEventListener('click', iniciarVerificacion);
+
+btnReextractOcr.addEventListener('click', async () => {
+  if (!currentId) return;
+  if (!confirm('Reintentar extracción con OCR avanzado? Esto puede tardar 10-30 segundos por página.')) return;
+
+  btnReextractOcr.disabled = true;
+  btnReextractOcr.classList.add('processing');
+  btnReextractOcr.textContent = 'Procesando...';
+  ocrStatus.classList.remove('hidden');
+  ocrStatusMsg.textContent = 'Iniciando OCR avanzado (Playwright + Tesseract)...';
+
+  try {
+    const res = await fetch(`/api/reextract-ocr/${currentId}`, { method: 'POST' });
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const msg = JSON.parse(line.slice(6));
+          if (msg.type === 'log') {
+            ocrStatusMsg.textContent = msg.message;
+          } else if (msg.type === 'done') {
+            mostrarDatos(msg.datos);
+            ocrStatus.classList.add('hidden');
+            btnReextractOcr.disabled = false;
+            btnReextractOcr.classList.remove('processing');
+            btnReextractOcr.textContent = 'Reintentar con OCR';
+          }
+        } catch (e) {}
+      }
+    }
+  } catch (e) {
+    alert('Error en la re-extracción OCR');
+    ocrStatus.classList.add('hidden');
+    btnReextractOcr.disabled = false;
+    btnReextractOcr.classList.remove('processing');
+    btnReextractOcr.textContent = 'Reintentar con OCR';
+  }
+});
 
 async function iniciarVerificacion() {
   btnVerificar.disabled = true;

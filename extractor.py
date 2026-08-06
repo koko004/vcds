@@ -209,6 +209,74 @@ def _extraer_con_playwright(pdf_path: str, log_fn: Callable | None = None) -> st
     return texto
 
 
+def _extraer_con_screenshot_ocr(pdf_path: str, log_fn: Callable | None = None) -> str:
+    _log(log_fn, "Starting Playwright screenshot + Tesseract OCR extraction")
+    texto = ""
+    try:
+        from playwright.sync_api import sync_playwright
+        import tempfile
+
+        abs_path = os.path.abspath(pdf_path)
+
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(
+                viewport={"width": 1280, "height": 1024},
+                device_scale_factor=2
+            )
+            page = context.new_page()
+
+            file_url = f"file://{abs_path}"
+            _log(log_fn, f"Opening PDF in Chromium: {abs_path}")
+            page.goto(file_url, wait_until="load", timeout=30000)
+            page.wait_for_timeout(3000)
+
+            num_pages = page.evaluate("""() => {
+                const pages = document.querySelectorAll('.page, [data-page-number], .pdfPage');
+                return pages.length || document.querySelector('#viewer')?.children?.length || 1;
+            }""")
+            _log(log_fn, f"PDF has {num_pages} page(s)")
+
+            for i in range(num_pages):
+                _log(log_fn, f"Processing page {i+1}/{num_pages}")
+
+                page.evaluate(f"""() => {{
+                    const pages = document.querySelectorAll('.page, [data-page-number], .pdfPage');
+                    const viewer = document.querySelector('#viewer');
+                    const targets = pages.length ? pages : (viewer?.children ? viewer.children : []);
+                    if (targets[{i}]) targets[{i}].scrollIntoView();
+                }}""")
+                page.wait_for_timeout(1000)
+
+                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+                    tmp_path = tmp.name
+
+                page.screenshot(path=tmp_path, full_page=False)
+
+                img = Image.open(tmp_path)
+                gray = img.convert("L")
+                config = "--psm 4 --oem 1"
+
+                texto_bin = pytesseract.image_to_string(
+                    gray.point(lambda p: 255 if p > 120 else 0),
+                    lang="spa", config=config
+                )
+                texto_raw = pytesseract.image_to_string(gray, lang="spa", config=config)
+
+                pagina_texto = texto_raw if len(texto_raw.strip()) > len(texto_bin.strip()) else texto_bin
+                texto += pagina_texto + "\n"
+                _log(log_fn, f"Page {i+1}: extracted {len(pagina_texto)} chars via OCR")
+
+                os.remove(tmp_path)
+
+            browser.close()
+
+        _log(log_fn, f"Screenshot OCR complete: {len(texto)} total chars")
+    except Exception as e:
+        _log(log_fn, f"Screenshot OCR failed: {e}")
+    return texto
+
+
 def _ocr_pagina(pagina, log_fn: Callable | None = None) -> str:
     _log(log_fn, "Rendering page to image at 400 DPI")
     pix = pagina.get_pixmap(dpi=400)
@@ -492,6 +560,45 @@ def extraer_datos(pdf_path: str, log_fn: Callable | None = None) -> dict:
     _log(log_fn, f"Date: {fecha or '(not found)'}")
     _log(log_fn, f"NO CONSTA: {no_consta}")
     _log(log_fn, "Extraction complete")
+    return {
+        "nombre": nombre,
+        "dni": dni,
+        "csv": csv_val,
+        "fecha_emision": fecha,
+        "no_consta": no_consta,
+        "texto_completo": texto,
+    }
+
+
+def extraer_datos_ocr(pdf_path: str, log_fn: Callable | None = None) -> dict:
+    _log(log_fn, "Starting OCR-based extraction (Playwright screenshot + Tesseract)")
+    texto = _extraer_con_screenshot_ocr(pdf_path, log_fn)
+    if not texto.strip():
+        _log(log_fn, "Screenshot OCR returned no text")
+        return {
+            "nombre": None,
+            "dni": None,
+            "csv": None,
+            "fecha_emision": None,
+            "no_consta": False,
+            "texto_completo": "",
+        }
+    pie = _extraer_pie_pdfplumber(pdf_path, log_fn)
+    if not pie.strip():
+        lineas = texto.split('\n')
+        pie = '\n'.join(lineas[-15:])
+    _log(log_fn, "Parsing fields from OCR text")
+    nombre = extraer_nombre(texto)
+    dni = extraer_dni(texto)
+    csv_val = extraer_csv(texto, pie)
+    fecha = extraer_fecha(texto, pie)
+    no_consta = extraer_no_consta(texto)
+    _log(log_fn, f"OCR Name: {nombre or '(not found)'}")
+    _log(log_fn, f"OCR DNI: {dni or '(not found)'}")
+    _log(log_fn, f"OCR CSV: {csv_val or '(not found)'}")
+    _log(log_fn, f"OCR Date: {fecha or '(not found)'}")
+    _log(log_fn, f"OCR NO CONSTA: {no_consta}")
+    _log(log_fn, "OCR extraction complete")
     return {
         "nombre": nombre,
         "dni": dni,

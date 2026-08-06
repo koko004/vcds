@@ -15,11 +15,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import bcrypt
 
-from extractor import extraer_datos
+from extractor import extraer_datos, extraer_datos_ocr
 from verificador_web import VerificadorWeb, _asegurar_display
 from comparador import comparar
 
-VERSION = "1.0.12"
+VERSION = "1.0.13"
 
 app = FastAPI(title="Verificador de Certificados")
 app.add_middleware(
@@ -128,6 +128,9 @@ def _check_rate_limit(ip: str) -> bool:
 
 
 def _get_client_ip(request: Request) -> str:
+    cf_ip = request.headers.get("CF-Connecting-IP")
+    if cf_ip:
+        return cf_ip.strip()
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
         return forwarded.split(",")[0].strip()
@@ -345,6 +348,38 @@ async def actualizar_datos(request: Request, vid: str, datos: dict = Body(...)):
         if key in datos:
             v["datos_extraidos"][key] = datos[key]
     return {"id": vid, "datos": v["datos_extraidos"]}
+
+
+@app.post("/api/reextract-ocr/{vid}")
+async def reextract_ocr(request: Request, vid: str):
+    if not await _require_auth(request):
+        raise HTTPException(401, "No autenticado")
+    v = verificaciones.get(vid)
+    if not v:
+        raise HTTPException(404, "Verificación no encontrada")
+    if v["estado"] != "extraido":
+        raise HTTPException(400, f"Estado inválido: {v['estado']}")
+
+    ruta = v["ruta_usuario"]
+    if not os.path.exists(ruta):
+        raise HTTPException(404, "Archivo PDF no encontrado")
+
+    logs = []
+
+    def on_log(msg):
+        logs.append(msg)
+
+    datos = extraer_datos_ocr(ruta, log_fn=on_log)
+
+    for key in ("nombre", "dni", "csv", "fecha_emision", "no_consta"):
+        v["datos_extraidos"][key] = datos.get(key)
+
+    async def event_stream():
+        for msg in logs:
+            yield f"data: {json.dumps({'type': 'log', 'message': msg})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'id': vid, 'datos': v['datos_extraidos']})}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @app.post("/api/verify/{vid}")
