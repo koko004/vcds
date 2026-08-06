@@ -396,6 +396,9 @@ async def chrome_ocr(request: Request, vid: str):
     if not os.path.exists(ruta):
         raise HTTPException(404, "Archivo PDF no encontrado")
 
+    if not _asegurar_display():
+        raise HTTPException(500, "No hay servidor X disponible para Chrome OCR")
+
     logs = []
 
     def on_log(msg):
@@ -406,10 +409,17 @@ async def chrome_ocr(request: Request, vid: str):
     def _chrome_ocr_sync():
         from playwright.sync_api import sync_playwright
         texto = ""
-        on_log("Iniciando Chrome OCR (Playwright + portapapeles)...")
+        on_log("Iniciando Chrome OCR (ventana visible + portapapeles)...")
         try:
             with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)
+                browser = p.chromium.launch(
+                    headless=False,
+                    args=[
+                        "--no-sandbox",
+                        "--disable-dev-shm-usage",
+                        "--disable-blink-features=AutomationControlled",
+                    ]
+                )
                 context = browser.new_context(
                     permissions=["clipboard-read", "clipboard-write"],
                     viewport={"width": 1280, "height": 1024},
@@ -419,7 +429,7 @@ async def chrome_ocr(request: Request, vid: str):
                 file_url = f"file://{abs_path}"
                 on_log(f"Abriendo PDF en Chromium: {abs_path}")
                 page.goto(file_url, wait_until="load", timeout=30000)
-                page.wait_for_timeout(2500)
+                page.wait_for_timeout(3000)
 
                 on_log("Haciendo clic en el documento para enfocar...")
                 page.mouse.click(640, 512)
@@ -460,26 +470,10 @@ async def chrome_ocr(request: Request, vid: str):
                     except Exception:
                         pass
 
-                if not texto or not texto.strip():
-                    on_log("Fallback: seleccionando por rango de caracteres...")
-                    try:
-                        texto = page.evaluate("""() => {
-                            const range = document.createRange();
-                            const body = document.body;
-                            if (!body) return '';
-                            range.selectNodeContents(body);
-                            const sel = window.getSelection();
-                            sel.removeAllRanges();
-                            sel.addRange(range);
-                            return sel.toString();
-                        }""")
-                    except Exception:
-                        pass
-
                 if texto and texto.strip():
                     on_log(f"Chrome OCR extraído: {len(texto)} caracteres")
                 else:
-                    on_log("Chrome OCR no pudo extraer texto (portapapeles restringido en headless)")
+                    on_log("Chrome OCR no pudo extraer texto")
 
                 browser.close()
         except Exception as e:
@@ -495,7 +489,7 @@ async def chrome_ocr(request: Request, vid: str):
         async def event_stream():
             for msg in logs:
                 yield f"data: {json.dumps({'type': 'log', 'message': msg})}\n\n"
-                yield f"data: {json.dumps({'type': 'error', 'message': 'Chrome OCR no pudo extraer texto. El portapapeles puede estar restringido en modo headless.'})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Chrome OCR no pudo extraer texto'})}\n\n"
         return StreamingResponse(event_stream(), media_type="text/event-stream")
 
     from extractor import extraer_nombre, extraer_dni, extraer_csv, extraer_fecha, extraer_no_consta
