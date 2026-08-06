@@ -210,70 +210,42 @@ def _extraer_con_playwright(pdf_path: str, log_fn: Callable | None = None) -> st
 
 
 def _extraer_con_screenshot_ocr(pdf_path: str, log_fn: Callable | None = None) -> str:
-    _log(log_fn, "Starting Playwright screenshot + Tesseract OCR extraction")
+    _log(log_fn, "Starting PyMuPDF render + Tesseract OCR extraction")
     texto = ""
     try:
-        from playwright.sync_api import sync_playwright
         import tempfile
+        doc = fitz.open(pdf_path)
+        num_pages = doc.page_count
+        _log(log_fn, f"PDF has {num_pages} page(s)")
 
-        abs_path = os.path.abspath(pdf_path)
+        for i in range(num_pages):
+            _log(log_fn, f"Processing page {i+1}/{num_pages}")
+            pagina = doc[i]
+            pix = pagina.get_pixmap(dpi=300)
 
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            context = browser.new_context(
-                viewport={"width": 1280, "height": 1024},
-                device_scale_factor=2
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+                tmp_path = tmp.name
+            pix.save(tmp_path)
+
+            img = Image.open(tmp_path)
+            gray = img.convert("L")
+            config = "--psm 4 --oem 1"
+
+            texto_bin = pytesseract.image_to_string(
+                gray.point(lambda p: 255 if p > 120 else 0),
+                lang="spa", config=config
             )
-            page = context.new_page()
+            texto_raw = pytesseract.image_to_string(gray, lang="spa", config=config)
 
-            file_url = f"file://{abs_path}"
-            _log(log_fn, f"Opening PDF in Chromium: {abs_path}")
-            page.goto(file_url, wait_until="load", timeout=30000)
-            page.wait_for_timeout(3000)
+            pagina_texto = texto_raw if len(texto_raw.strip()) > len(texto_bin.strip()) else texto_bin
+            texto += pagina_texto + "\n"
+            _log(log_fn, f"Page {i+1}: extracted {len(pagina_texto)} chars via OCR")
+            os.remove(tmp_path)
 
-            num_pages = page.evaluate("""() => {
-                const pages = document.querySelectorAll('.page, [data-page-number], .pdfPage');
-                return pages.length || document.querySelector('#viewer')?.children?.length || 1;
-            }""")
-            _log(log_fn, f"PDF has {num_pages} page(s)")
-
-            for i in range(num_pages):
-                _log(log_fn, f"Processing page {i+1}/{num_pages}")
-
-                page.evaluate(f"""() => {{
-                    const pages = document.querySelectorAll('.page, [data-page-number], .pdfPage');
-                    const viewer = document.querySelector('#viewer');
-                    const targets = pages.length ? pages : (viewer?.children ? viewer.children : []);
-                    if (targets[{i}]) targets[{i}].scrollIntoView();
-                }}""")
-                page.wait_for_timeout(1000)
-
-                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-                    tmp_path = tmp.name
-
-                page.screenshot(path=tmp_path, full_page=False)
-
-                img = Image.open(tmp_path)
-                gray = img.convert("L")
-                config = "--psm 4 --oem 1"
-
-                texto_bin = pytesseract.image_to_string(
-                    gray.point(lambda p: 255 if p > 120 else 0),
-                    lang="spa", config=config
-                )
-                texto_raw = pytesseract.image_to_string(gray, lang="spa", config=config)
-
-                pagina_texto = texto_raw if len(texto_raw.strip()) > len(texto_bin.strip()) else texto_bin
-                texto += pagina_texto + "\n"
-                _log(log_fn, f"Page {i+1}: extracted {len(pagina_texto)} chars via OCR")
-
-                os.remove(tmp_path)
-
-            browser.close()
-
-        _log(log_fn, f"Screenshot OCR complete: {len(texto)} total chars")
+        doc.close()
+        _log(log_fn, f"OCR extraction complete: {len(texto)} total chars")
     except Exception as e:
-        _log(log_fn, f"Screenshot OCR failed: {e}")
+        _log(log_fn, f"OCR extraction failed: {e}")
     return texto
 
 

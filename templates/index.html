@@ -17,14 +17,19 @@
 .loading-text span { animation:pulse 1.5s ease infinite; }
 .spinner { display:inline-block; width:18px; height:18px; border:3px solid #ddd; border-top-color:#2563eb; border-radius:50%; animation:spin 0.8s linear infinite; margin-right:0.5rem; vertical-align:middle; }
 @keyframes spin { to{transform:rotate(360deg)} }
-.btn-ocr { background:#7c3aed; color:#fff; border:none; padding:0.6rem 1.2rem; border-radius:8px; font-size:0.9rem; font-weight:600; cursor:pointer; transition:all 0.3s; position:relative; overflow:hidden; }
-.btn-ocr:hover { background:#6d28d9; transform:translateY(-1px); box-shadow:0 4px 12px rgba(124,58,237,0.4); }
-.btn-ocr:disabled { background:#a78bfa; cursor:not-allowed; transform:none; box-shadow:none; }
+.btn-ocr { background:#ec4899; color:#fff; border:none; padding:0.6rem 1.2rem; border-radius:8px; font-size:0.9rem; font-weight:600; cursor:pointer; transition:all 0.3s; position:relative; overflow:hidden; }
+.btn-ocr:hover { background:#db2777; transform:translateY(-1px); box-shadow:0 4px 12px rgba(236,72,153,0.4); }
+.btn-ocr:disabled { background:#f9a8d4; cursor:not-allowed; transform:none; box-shadow:none; }
+.btn-ministerio { background:#f59e0b; color:#fff; border:none; padding:0.6rem 1.2rem; border-radius:8px; font-size:0.9rem; font-weight:600; cursor:pointer; transition:all 0.3s; position:relative; overflow:hidden; }
+.btn-ministerio:hover { background:#d97706; transform:translateY(-1px); box-shadow:0 4px 12px rgba(245,158,11,0.4); }
+.btn-ministerio:disabled { background:#fcd34d; cursor:not-allowed; transform:none; box-shadow:none; }
+.btn-ministerio.processing { pointer-events:none; }
+.btn-ministerio.processing::after { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent); animation:shimmer 1.5s infinite; }
 .btn-ocr.processing { pointer-events:none; }
 .btn-ocr.processing::after { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent); animation:shimmer 1.5s infinite; }
 @keyframes shimmer { 100%{left:100%} }
-.ocr-status { display:flex; align-items:center; gap:0.5rem; margin-top:0.75rem; padding:0.75rem 1rem; background:#f5f3ff; border:1px solid #c4b5fd; border-radius:8px; font-size:0.85rem; color:#5b21b6; }
-.ocr-status .ocr-spinner { width:16px; height:16px; border:2px solid #c4b5fd; border-top-color:#7c3aed; border-radius:50%; animation:spin 0.8s linear infinite; flex-shrink:0; }
+.ocr-status { display:flex; align-items:center; gap:0.5rem; margin-top:0.75rem; padding:0.75rem 1rem; background:#fdf2f8; border:1px solid #f9a8d4; border-radius:8px; font-size:0.85rem; color:#be185d; }
+.ocr-status .ocr-spinner { width:16px; height:16px; border:2px solid #f9a8d4; border-top-color:#ec4899; border-radius:50%; animation:spin 0.8s linear infinite; flex-shrink:0; }
 .dato-input { width:100%; padding:0.5rem 0.75rem; border:1.5px solid #d1d5db; border-radius:8px; font-size:0.95rem; font-family:inherit; background:#fafafa; transition:border-color 0.2s, box-shadow 0.2s; box-sizing:border-box; }
 .dato-input:focus { outline:none; border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,0.15); background:#fff; }
 .dato-input:invalid, .dato-input.vacio { border-color:#f59e0b; }
@@ -94,6 +99,7 @@ select.dato-input { cursor:pointer; }
     <div class="mt-1" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center">
       <button class="btn btn-primary" id="btnVerificar">Verificar en el Ministerio</button>
       <button class="btn-ocr" id="btnReextractOcr">Reintentar con OCR</button>
+      <button class="btn-ministerio" id="btnIrMinisterio">Ir al Ministerio</button>
     </div>
   </div>
 
@@ -616,6 +622,65 @@ btnReextractOcr.addEventListener('click', async () => {
     btnReextractOcr.disabled = false;
     btnReextractOcr.classList.remove('processing');
     btnReextractOcr.textContent = 'Reintentar con OCR';
+  }
+});
+
+const btnIrMinisterio = document.getElementById('btnIrMinisterio');
+btnIrMinisterio.addEventListener('click', async () => {
+  if (!currentId) return;
+  if (!confirm('Abrir el Ministerio en Playwright sin resolver captcha?')) return;
+
+  btnIrMinisterio.disabled = true;
+  btnIrMinisterio.classList.add('processing');
+  btnIrMinisterio.textContent = 'Abriendo Ministerio...';
+
+  datosCard.classList.add('hidden');
+  visorCard.classList.remove('hidden');
+  resultadoCard.classList.add('hidden');
+  loadingState.style.display = 'block';
+  visorContent.style.display = 'none';
+  btnListo.disabled = true;
+  btnListo.textContent = 'Navegando al Ministerio...';
+
+  let msgIdx = 0;
+  const msgs = ['Iniciando navegador...', 'Navegando al Ministerio de Justicia...', 'Rellenando campos del formulario...', 'Esperando captcha...'];
+  const msgInterval = setInterval(() => {
+    msgIdx = Math.min(msgIdx + 1, msgs.length - 1);
+    loadingMsg.textContent = msgs[msgIdx];
+  }, 3000);
+
+  try {
+    const res = await fetch(`/api/abrir-ministerio/${currentId}`, { method: 'POST' });
+    const data = await res.json();
+    clearInterval(msgInterval);
+
+    if (!res.ok || !data.ok) {
+      loadingState.style.display = 'none';
+      visorContent.style.display = 'none';
+      alert(data.detail || data.mensaje || 'Error al abrir el Ministerio');
+      btnIrMinisterio.disabled = false;
+      btnIrMinisterio.classList.remove('processing');
+      btnIrMinisterio.textContent = 'Ir al Ministerio';
+      return;
+    }
+
+    pollStatus();
+    startScreenshot();
+
+    btnListo.disabled = false;
+    btnListo.textContent = 'Resuelve el captcha en el visor de arriba';
+    btnListo.onclick = () => {
+      btnListo.textContent = 'Esperando...';
+      btnListo.disabled = true;
+    };
+  } catch (e) {
+    clearInterval(msgInterval);
+    loadingState.style.display = 'none';
+    visorContent.style.display = 'none';
+    alert('Error al abrir el Ministerio');
+    btnIrMinisterio.disabled = false;
+    btnIrMinisterio.classList.remove('processing');
+    btnIrMinisterio.textContent = 'Ir al Ministerio';
   }
 });
 

@@ -19,7 +19,7 @@ from extractor import extraer_datos, extraer_datos_ocr
 from verificador_web import VerificadorWeb, _asegurar_display
 from comparador import comparar
 
-VERSION = "1.0.13"
+VERSION = "1.0.14"
 
 app = FastAPI(title="Verificador de Certificados")
 app.add_middleware(
@@ -380,6 +380,47 @@ async def reextract_ocr(request: Request, vid: str):
         yield f"data: {json.dumps({'type': 'done', 'id': vid, 'datos': v['datos_extraidos']})}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@app.post("/api/abrir-ministerio/{vid}")
+async def abrir_ministerio(request: Request, vid: str):
+    if not await _require_auth(request):
+        raise HTTPException(401, "No autenticado")
+    v = verificaciones.get(vid)
+    if not v:
+        raise HTTPException(404, "Verificación no encontrada")
+    datos = v["datos_extraidos"]
+    csv = datos.get("csv")
+    dni = datos.get("dni")
+    if not csv:
+        raise HTTPException(400, "No hay CSV disponible para abrir el Ministerio")
+    if not dni:
+        raise HTTPException(400, "No hay DNI disponible")
+    if not _asegurar_display():
+        v["estado"] = "error"
+        v["mensaje"] = "No hay servidor X disponible"
+        return {"ok": False, "mensaje": v["mensaje"]}
+
+    v["estado"] = "navegando"
+    verificador = VerificadorWeb(vid)
+
+    async def tarea():
+        try:
+            await verificador.iniciar()
+            await verificador.navegar(csv, dni)
+            v["verificador"] = verificador
+            v["estado"] = "esperando_captcha"
+            v["mensaje"] = "Navegador listo. Resuelve el captcha manualmente en el visor."
+        except Exception as e:
+            v["estado"] = "error"
+            v["mensaje"] = str(e)
+            try:
+                await verificador.cerrar()
+            except Exception:
+                pass
+
+    asyncio.create_task(tarea())
+    return {"ok": True, "mensaje": "Abriendo Ministerio en Playwright..."}
 
 
 @app.post("/api/verify/{vid}")
