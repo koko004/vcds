@@ -396,168 +396,162 @@ async def chrome_ocr(request: Request, vid: str):
     if not os.path.exists(ruta):
         raise HTTPException(404, "Archivo PDF no encontrado")
 
-    if not _asegurar_display():
-        raise HTTPException(500, "No hay servidor X disponible")
-
     abs_path = os.path.abspath(ruta)
     logs = []
+    _log = lambda msg: logs.append(msg)
 
-    async def _chrome_ocr_async():
+    async def _extraer_texto_chromium():
         from playwright.async_api import async_playwright
         import subprocess
-        texto = ""
+
         display = os.environ.get("DISPLAY", ":99")
         env = os.environ.copy()
         env["DISPLAY"] = display
-        _log = lambda msg: logs.append(msg)
+        texto = ""
 
-        _log(f"Iniciando Chrome OCR (display={display})...")
+        _asegurar_display()
+        _log(f"Display: {display}")
+
+        pw = await async_playwright().start()
         try:
-            async with async_playwright() as pw:
-                browser = await pw.chromium.launch(
-                    headless=False,
-                    args=[
-                        "--no-sandbox",
-                        "--disable-dev-shm-usage",
-                        "--disable-blink-features=AutomationControlled",
-                    ]
-                )
-                context = await browser.new_context(
-                    permissions=["clipboard-read", "clipboard-write"],
-                    viewport={"width": 1280, "height": 1024},
-                )
-                page = await context.new_page()
+            browser = await pw.chromium.launch(
+                headless=False,
+                args=[
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-blink-features=AutomationControlled",
+                ]
+            )
+            context = await browser.new_context(
+                permissions=["clipboard-read", "clipboard-write"],
+                viewport={"width": 1280, "height": 1024},
+            )
+            page = await context.new_page()
 
-                file_url = f"file://{abs_path}"
-                _log(f"Abriendo PDF en Chromium: {abs_path}")
-                await page.goto(file_url, wait_until="load", timeout=30000)
-                await page.wait_for_timeout(4000)
+            file_url = f"file://{abs_path}"
+            _log(f"Abriendo PDF: {file_url}")
+            await page.goto(file_url, wait_until="load", timeout=30000)
+            await page.wait_for_timeout(4000)
 
-                _log("Intentando extraer texto via PDFViewerApplication...")
-                try:
-                    texto = await page.evaluate("""async () => {
-                        try {
-                            const app = window.PDFViewerApplication;
-                            if (app && app.pdfDocument) {
-                                const pdf = app.pdfDocument;
-                                const numPages = pdf.numPages;
-                                let allText = [];
-                                for (let i = 1; i <= numPages; i++) {
-                                    const page = await pdf.getPage(i);
-                                    const content = await page.getTextContent();
-                                    allText.push(content.items.map(j => j.str).join(' '));
-                                }
-                                return allText.join('\\n');
+            _log("Intentando PDFViewerApplication.getTextContent()...")
+            try:
+                texto = await page.evaluate("""async () => {
+                    try {
+                        const app = window.PDFViewerApplication;
+                        if (app && app.pdfDocument) {
+                            const pdf = app.pdfDocument;
+                            const numPages = pdf.numPages;
+                            let allText = [];
+                            for (let i = 1; i <= numPages; i++) {
+                                const pg = await pdf.getPage(i);
+                                const content = await pg.getTextContent();
+                                allText.push(content.items.map(j => j.str).join(' '));
                             }
-                        } catch(e) { return ''; }
-                        return '';
-                    }""")
-                except Exception as e:
-                    _log(f"PDFViewerApplication failed: {e}")
+                            return allText.join('\\n');
+                        }
+                    } catch(e) { return 'ERR:' + e.message; }
+                    return '';
+                }""")
+                if texto and texto.startswith("ERR:"):
+                    _log(f"PDFViewerApplication error: {texto}")
+                    texto = ""
+            except Exception as e:
+                _log(f"PDFViewerApplication exception: {e}")
 
-                if not texto or not texto.strip():
-                    _log("Haciendo clic en el documento...")
-                    await page.mouse.click(640, 512)
-                    await page.wait_for_timeout(1000)
+            if not texto or not texto.strip():
+                _log("Fallback: Ctrl+A / Ctrl+C via teclado...")
+                await page.mouse.click(640, 512)
+                await page.wait_for_timeout(1000)
+                await page.keyboard.press("Control+a")
+                await page.wait_for_timeout(500)
+                await page.keyboard.press("Control+c")
+                await page.wait_for_timeout(500)
 
-                    _log("Seleccionando todo (Ctrl+A)...")
-                    await page.keyboard.press("Control+a")
-                    await page.wait_for_timeout(800)
-
-                    _log("Copiando (Ctrl+C)...")
-                    await page.keyboard.press("Control+c")
-                    await page.wait_for_timeout(800)
-
-                    _log("Leyendo portapapeles via xsel...")
+                for cmd_name, cmd in [
+                    ("xsel", ["xsel", "--clipboard", "--output"]),
+                    ("xclip", ["xclip", "-selection", "clipboard", "-o"]),
+                ]:
                     try:
-                        result = subprocess.run(
-                            ["xsel", "--clipboard", "--output"],
-                            capture_output=True, text=True, timeout=5, env=env
-                        )
-                        texto = result.stdout
+                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=5, env=env)
+                        if result.stdout.strip():
+                            texto = result.stdout
+                            _log(f"Texto via {cmd_name}: {len(texto)} chars")
+                            break
                     except Exception as e:
-                        _log(f"xsel failed: {e}")
+                        _log(f"{cmd_name} failed: {e}")
 
-                if not texto or not texto.strip():
-                    _log("Fallback: xclip...")
-                    try:
-                        result = subprocess.run(
-                            ["xclip", "-selection", "clipboard", "-o"],
-                            capture_output=True, text=True, timeout=5, env=env
-                        )
-                        texto = result.stdout
-                    except Exception as e:
-                        _log(f"xclip failed: {e}")
+            if not texto or not texto.strip():
+                _log("Fallback: navigator.clipboard.readText()...")
+                try:
+                    texto = await page.evaluate("navigator.clipboard.readText()")
+                except Exception:
+                    pass
 
-                if not texto or not texto.strip():
-                    _log("Fallback: navigator.clipboard...")
-                    try:
-                        texto = await page.evaluate("navigator.clipboard.readText()")
-                    except Exception:
-                        pass
+            if not texto or not texto.strip():
+                _log("Fallback: window.getSelection()...")
+                try:
+                    texto = await page.evaluate("() => { const s = window.getSelection(); return s ? s.toString() : ''; }")
+                except Exception:
+                    pass
 
-                if texto and texto.strip():
-                    _log(f"Chrome OCR extraído: {len(texto)} caracteres")
-                else:
-                    _log("Chrome OCR no pudo extraer texto")
-
-                await browser.close()
+            await browser.close()
         except Exception as e:
-            _log(f"Chrome OCR error: {e}")
+            _log(f"Error Chromium: {e}")
+        finally:
+            await pw.stop()
+
         return texto
 
+    texto = ""
     try:
-        texto = await _chrome_ocr_async()
+        texto = await _extraer_texto_chromium()
     except Exception as e:
-        raise HTTPException(500, f"Error en Chrome OCR: {e}")
+        _log(f"Error general: {e}")
 
     if not texto or not texto.strip():
-        async def event_stream():
-            for msg in logs:
-                yield f"data: {json.dumps({'type': 'log', 'message': msg})}\n\n"
-            yield f"data: {json.dumps({'type': 'error', 'message': 'Chrome OCR no pudo extraer texto'})}\n\n"
-        return StreamingResponse(event_stream(), media_type="text/event-stream")
+        _log("Chrome OCR no pudo extraer texto")
 
     from extractor import extraer_nombre, extraer_dni, extraer_csv, extraer_fecha, extraer_no_consta
-    logs.append("Parseando campos del texto extraído...")
-    nombre = extraer_nombre(texto)
-    dni = extraer_dni(texto)
-    pie = ""
-    try:
-        import fitz
-        doc = fitz.open(ruta)
-        for pagina in doc:
-            alto = pagina.height
-            umbral_y = alto * 0.80
-            bloques = pagina.get_text("dict", clip=fitz.Rect(0, umbral_y, pagina.rect.width, pagina.rect.height))
-            for bloque in bloques.get("blocks", []):
-                for linea in bloque.get("lines", []):
-                    for span in linea.get("spans", []):
-                        pie += span.get("text", "") + " "
-        doc.close()
-    except Exception:
-        pass
-    csv_val = extraer_csv(texto, pie)
-    fecha = extraer_fecha(texto, pie)
-    no_consta = extraer_no_consta(texto)
-    logs.append(f"Nombre: {nombre or '(no encontrado)'}")
-    logs.append(f"DNI: {dni or '(no encontrado)'}")
-    logs.append(f"CSV: {csv_val or '(no encontrado)'}")
-    logs.append(f"Fecha: {fecha or '(no encontrado)'}")
-    logs.append(f"NO CONSTA: {no_consta}")
-
-    v["datos_extraidos"] = {
-        "nombre": nombre,
-        "dni": dni,
-        "csv": csv_val,
-        "fecha_emision": fecha,
-        "no_consta": no_consta,
-    }
+    if texto and texto.strip():
+        _log(f"Texto extraído: {len(texto)} caracteres")
+        _log("Parseando campos...")
+        nombre = extraer_nombre(texto)
+        dni = extraer_dni(texto)
+        pie = ""
+        try:
+            import fitz
+            doc = fitz.open(ruta)
+            for pagina in doc:
+                alto = pagina.height
+                umbral_y = alto * 0.80
+                bloques = pagina.get_text("dict", clip=fitz.Rect(0, umbral_y, pagina.rect.width, pagina.rect.height))
+                for bloque in bloques.get("blocks", []):
+                    for linea in bloque.get("lines", []):
+                        for span in linea.get("spans", []):
+                            pie += span.get("text", "") + " "
+            doc.close()
+        except Exception:
+            pass
+        csv_val = extraer_csv(texto, pie)
+        fecha = extraer_fecha(texto, pie)
+        no_consta = extraer_no_consta(texto)
+        _log(f"Nombre: {nombre or '(no encontrado)'}")
+        _log(f"DNI: {dni or '(no encontrado)'}")
+        _log(f"CSV: {csv_val or '(no encontrado)'}")
+        _log(f"Fecha: {fecha or '(no encontrado)'}")
+        _log(f"NO CONSTA: {no_consta}")
+        v["datos_extraidos"] = {
+            "nombre": nombre, "dni": dni, "csv": csv_val,
+            "fecha_emision": fecha, "no_consta": no_consta,
+        }
 
     async def event_stream():
         for msg in logs:
             yield f"data: {json.dumps({'type': 'log', 'message': msg})}\n\n"
-        yield f"data: {json.dumps({'type': 'done', 'id': vid, 'datos': v['datos_extraidos']})}\n\n"
+        if texto and texto.strip():
+            yield f"data: {json.dumps({'type': 'done', 'id': vid, 'datos': v['datos_extraidos']})}\n\n"
+        else:
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Chrome OCR no pudo extraer texto'})}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
