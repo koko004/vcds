@@ -419,7 +419,7 @@ async def chrome_ocr(request: Request, vid: str):
                 file_url = f"file://{abs_path}"
                 on_log(f"Abriendo PDF en Chromium: {abs_path}")
                 page.goto(file_url, wait_until="load", timeout=30000)
-                page.wait_for_timeout(2000)
+                page.wait_for_timeout(2500)
 
                 on_log("Haciendo clic en el documento para enfocar...")
                 page.mouse.click(640, 512)
@@ -434,19 +434,52 @@ async def chrome_ocr(request: Request, vid: str):
                 page.wait_for_timeout(500)
 
                 on_log("Leyendo portapapeles...")
-                texto = page.evaluate("navigator.clipboard.readText()")
+                texto = ""
+                try:
+                    texto = page.evaluate("navigator.clipboard.readText()")
+                except Exception as e:
+                    on_log(f"Portapapeles no disponible: {e}")
 
                 if not texto or not texto.strip():
-                    on_log("Portapapeles vacío, intentando con eval...")
-                    texto = page.evaluate("""() => {
-                        const sel = window.getSelection();
-                        return sel ? sel.toString() : '';
-                    }""")
+                    on_log("Fallback: intentando con window.getSelection()...")
+                    try:
+                        texto = page.evaluate("""() => {
+                            const sel = window.getSelection();
+                            return sel ? sel.toString() : '';
+                        }""")
+                    except Exception:
+                        pass
+
+                if not texto or not texto.strip():
+                    on_log("Fallback: intentando con document.getSelection()...")
+                    try:
+                        texto = page.evaluate("""() => {
+                            const sel = document.getSelection();
+                            return sel ? sel.toString() : '';
+                        }""")
+                    except Exception:
+                        pass
+
+                if not texto or not texto.strip():
+                    on_log("Fallback: seleccionando por rango de caracteres...")
+                    try:
+                        texto = page.evaluate("""() => {
+                            const range = document.createRange();
+                            const body = document.body;
+                            if (!body) return '';
+                            range.selectNodeContents(body);
+                            const sel = window.getSelection();
+                            sel.removeAllRanges();
+                            sel.addRange(range);
+                            return sel.toString();
+                        }""")
+                    except Exception:
+                        pass
 
                 if texto and texto.strip():
                     on_log(f"Chrome OCR extraído: {len(texto)} caracteres")
                 else:
-                    on_log("Chrome OCR no extrajo texto (portapapeles restringido en headless)")
+                    on_log("Chrome OCR no pudo extraer texto (portapapeles restringido en headless)")
 
                 browser.close()
         except Exception as e:
