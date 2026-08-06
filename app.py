@@ -397,82 +397,78 @@ async def chrome_ocr(request: Request, vid: str):
         raise HTTPException(404, "Archivo PDF no encontrado")
 
     if not _asegurar_display():
-        raise HTTPException(500, "No hay servidor X disponible para Chrome OCR")
-
-    logs = []
-
-    def on_log(msg):
-        logs.append(msg)
+        raise HTTPException(500, "No hay servidor X disponible")
 
     abs_path = os.path.abspath(ruta)
+    logs = []
 
-    def _chrome_ocr_sync():
-        from playwright.sync_api import sync_playwright
+    async def _chrome_ocr_async():
+        from playwright.async_api import async_playwright
         import subprocess
         texto = ""
         display = os.environ.get("DISPLAY", ":99")
         env = os.environ.copy()
         env["DISPLAY"] = display
-        on_log(f"Iniciando Chrome OCR (display={display})...")
+        _log = lambda msg: logs.append(msg)
+
+        _log(f"Iniciando Chrome OCR (display={display})...")
         try:
-            with sync_playwright() as p:
-                browser = p.chromium.launch(
+            async with async_playwright() as pw:
+                browser = await pw.chromium.launch(
                     headless=False,
                     args=[
                         "--no-sandbox",
                         "--disable-dev-shm-usage",
                         "--disable-blink-features=AutomationControlled",
-                        f"--display={display}",
                     ]
                 )
-                context = browser.new_context(
+                context = await browser.new_context(
                     permissions=["clipboard-read", "clipboard-write"],
                     viewport={"width": 1280, "height": 1024},
                 )
-                page = context.new_page()
+                page = await context.new_page()
 
                 file_url = f"file://{abs_path}"
-                on_log(f"Abriendo PDF en Chromium: {abs_path}")
-                page.goto(file_url, wait_until="load", timeout=30000)
-                page.wait_for_timeout(4000)
+                _log(f"Abriendo PDF en Chromium: {abs_path}")
+                await page.goto(file_url, wait_until="load", timeout=30000)
+                await page.wait_for_timeout(4000)
 
-                on_log("Intentando extraer texto via PDFViewerApplication...")
-                texto = page.evaluate("""() => {
-                    try {
-                        const app = window.PDFViewerApplication;
-                        if (app && app.pdfDocument) {
-                            const pdf = app.pdfDocument;
-                            const numPages = pdf.numPages;
-                            let allText = [];
-                            const extractPage = async (pageNum) => {
-                                const page = await pdf.getPage(pageNum);
-                                const content = await page.getTextContent();
-                                return content.items.map(i => i.str).join(' ');
-                            };
-                            for (let i = 1; i <= numPages; i++) {
-                                allText.push(extractPage(i));
+                _log("Intentando extraer texto via PDFViewerApplication...")
+                try:
+                    texto = await page.evaluate("""async () => {
+                        try {
+                            const app = window.PDFViewerApplication;
+                            if (app && app.pdfDocument) {
+                                const pdf = app.pdfDocument;
+                                const numPages = pdf.numPages;
+                                let allText = [];
+                                for (let i = 1; i <= numPages; i++) {
+                                    const page = await pdf.getPage(i);
+                                    const content = await page.getTextContent();
+                                    allText.push(content.items.map(j => j.str).join(' '));
+                                }
+                                return allText.join('\\n');
                             }
-                            return Promise.all(allText).then(texts => texts.join('\\n'));
-                        }
-                    } catch(e) {}
-                    return '';
-                }""")
+                        } catch(e) { return ''; }
+                        return '';
+                    }""")
+                except Exception as e:
+                    _log(f"PDFViewerApplication failed: {e}")
 
                 if not texto or not texto.strip():
-                    on_log("PDFViewerApplication no disponible, intentando selection API...")
-                    on_log("Haciendo clic en el documento...")
-                    page.mouse.click(640, 512)
-                    page.wait_for_timeout(1000)
+                    _log("Haciendo clic en el documento...")
+                    await page.mouse.click(640, 512)
+                    await page.wait_for_timeout(1000)
 
-                    on_log("Seleccionando todo (Ctrl+A)...")
-                    page.keyboard.press("Control+a")
-                    page.wait_for_timeout(800)
+                    _log("Seleccionando todo (Ctrl+A)...")
+                    await page.keyboard.press("Control+a")
+                    await page.wait_for_timeout(800)
 
-                    on_log("Copiando (Ctrl+C)...")
-                    page.keyboard.press("Control+c")
-                    page.wait_for_timeout(800)
+                    _log("Copiando (Ctrl+C)...")
+                    await page.keyboard.press("Control+c")
+                    await page.wait_for_timeout(800)
 
-                    on_log("Leyendo portapapeles via xsel...")
+                    _log("Leyendo portapapeles via xsel...")
                     try:
                         result = subprocess.run(
                             ["xsel", "--clipboard", "--output"],
@@ -480,10 +476,10 @@ async def chrome_ocr(request: Request, vid: str):
                         )
                         texto = result.stdout
                     except Exception as e:
-                        on_log(f"xsel failed: {e}")
+                        _log(f"xsel failed: {e}")
 
                 if not texto or not texto.strip():
-                    on_log("Fallback: xclip...")
+                    _log("Fallback: xclip...")
                     try:
                         result = subprocess.run(
                             ["xclip", "-selection", "clipboard", "-o"],
@@ -491,34 +487,27 @@ async def chrome_ocr(request: Request, vid: str):
                         )
                         texto = result.stdout
                     except Exception as e:
-                        on_log(f"xclip failed: {e}")
+                        _log(f"xclip failed: {e}")
 
                 if not texto or not texto.strip():
-                    on_log("Fallback: navigator.clipboard...")
+                    _log("Fallback: navigator.clipboard...")
                     try:
-                        texto = page.evaluate("navigator.clipboard.readText()")
-                    except Exception:
-                        pass
-
-                if not texto or not texto.strip():
-                    on_log("Fallback: window.getSelection()...")
-                    try:
-                        texto = page.evaluate("() => { const s = window.getSelection(); return s ? s.toString() : ''; }")
+                        texto = await page.evaluate("navigator.clipboard.readText()")
                     except Exception:
                         pass
 
                 if texto and texto.strip():
-                    on_log(f"Chrome OCR extraído: {len(texto)} caracteres")
+                    _log(f"Chrome OCR extraído: {len(texto)} caracteres")
                 else:
-                    on_log("Chrome OCR no pudo extraer texto")
+                    _log("Chrome OCR no pudo extraer texto")
 
-                browser.close()
+                await browser.close()
         except Exception as e:
-            on_log(f"Chrome OCR error: {e}")
+            _log(f"Chrome OCR error: {e}")
         return texto
 
     try:
-        texto = await asyncio.get_event_loop().run_in_executor(None, _chrome_ocr_sync)
+        texto = await _chrome_ocr_async()
     except Exception as e:
         raise HTTPException(500, f"Error en Chrome OCR: {e}")
 
@@ -530,7 +519,7 @@ async def chrome_ocr(request: Request, vid: str):
         return StreamingResponse(event_stream(), media_type="text/event-stream")
 
     from extractor import extraer_nombre, extraer_dni, extraer_csv, extraer_fecha, extraer_no_consta
-    on_log("Parseando campos del texto extraído...")
+    logs.append("Parseando campos del texto extraído...")
     nombre = extraer_nombre(texto)
     dni = extraer_dni(texto)
     pie = ""
@@ -551,11 +540,11 @@ async def chrome_ocr(request: Request, vid: str):
     csv_val = extraer_csv(texto, pie)
     fecha = extraer_fecha(texto, pie)
     no_consta = extraer_no_consta(texto)
-    on_log(f"Nombre: {nombre or '(no encontrado)'}")
-    on_log(f"DNI: {dni or '(no encontrado)'}")
-    on_log(f"CSV: {csv_val or '(no encontrado)'}")
-    on_log(f"Fecha: {fecha or '(no encontrado)'}")
-    on_log(f"NO CONSTA: {no_consta}")
+    logs.append(f"Nombre: {nombre or '(no encontrado)'}")
+    logs.append(f"DNI: {dni or '(no encontrado)'}")
+    logs.append(f"CSV: {csv_val or '(no encontrado)'}")
+    logs.append(f"Fecha: {fecha or '(no encontrado)'}")
+    logs.append(f"NO CONSTA: {no_consta}")
 
     v["datos_extraidos"] = {
         "nombre": nombre,
