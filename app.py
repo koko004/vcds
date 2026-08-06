@@ -436,27 +436,51 @@ async def chrome_ocr(request: Request, vid: str):
                 page.goto(file_url, wait_until="load", timeout=30000)
                 page.wait_for_timeout(4000)
 
-                on_log("Haciendo clic en el documento para enfocar...")
-                page.mouse.click(640, 512)
-                page.wait_for_timeout(1000)
+                on_log("Intentando extraer texto via PDFViewerApplication...")
+                texto = page.evaluate("""() => {
+                    try {
+                        const app = window.PDFViewerApplication;
+                        if (app && app.pdfDocument) {
+                            const pdf = app.pdfDocument;
+                            const numPages = pdf.numPages;
+                            let allText = [];
+                            const extractPage = async (pageNum) => {
+                                const page = await pdf.getPage(pageNum);
+                                const content = await page.getTextContent();
+                                return content.items.map(i => i.str).join(' ');
+                            };
+                            for (let i = 1; i <= numPages; i++) {
+                                allText.push(extractPage(i));
+                            }
+                            return Promise.all(allText).then(texts => texts.join('\\n'));
+                        }
+                    } catch(e) {}
+                    return '';
+                }""")
 
-                on_log("Seleccionando todo el texto (Ctrl+A)...")
-                page.keyboard.press("Control+a")
-                page.wait_for_timeout(800)
+                if not texto or not texto.strip():
+                    on_log("PDFViewerApplication no disponible, intentando selection API...")
+                    on_log("Haciendo clic en el documento...")
+                    page.mouse.click(640, 512)
+                    page.wait_for_timeout(1000)
 
-                on_log("Copiando al portapapeles (Ctrl+C)...")
-                page.keyboard.press("Control+c")
-                page.wait_for_timeout(800)
+                    on_log("Seleccionando todo (Ctrl+A)...")
+                    page.keyboard.press("Control+a")
+                    page.wait_for_timeout(800)
 
-                on_log("Leyendo portapapeles via xsel...")
-                try:
-                    result = subprocess.run(
-                        ["xsel", "--clipboard", "--output"],
-                        capture_output=True, text=True, timeout=5, env=env
-                    )
-                    texto = result.stdout
-                except Exception as e:
-                    on_log(f"xsel failed: {e}")
+                    on_log("Copiando (Ctrl+C)...")
+                    page.keyboard.press("Control+c")
+                    page.wait_for_timeout(800)
+
+                    on_log("Leyendo portapapeles via xsel...")
+                    try:
+                        result = subprocess.run(
+                            ["xsel", "--clipboard", "--output"],
+                            capture_output=True, text=True, timeout=5, env=env
+                        )
+                        texto = result.stdout
+                    except Exception as e:
+                        on_log(f"xsel failed: {e}")
 
                 if not texto or not texto.strip():
                     on_log("Fallback: xclip...")
