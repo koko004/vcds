@@ -25,6 +25,11 @@
 .btn-ministerio:disabled { background:#fcd34d; cursor:not-allowed; transform:none; box-shadow:none; }
 .btn-ministerio.processing { pointer-events:none; }
 .btn-ministerio.processing::after { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent); animation:shimmer 1.5s infinite; }
+.btn-chrome-ocr { background:#16a34a; color:#fff; border:none; padding:0.6rem 1.2rem; border-radius:8px; font-size:0.9rem; font-weight:600; cursor:pointer; transition:all 0.3s; position:relative; overflow:hidden; }
+.btn-chrome-ocr:hover { background:#15803d; transform:translateY(-1px); box-shadow:0 4px 12px rgba(22,163,74,0.4); }
+.btn-chrome-ocr:disabled { background:#86efac; cursor:not-allowed; transform:none; box-shadow:none; }
+.btn-chrome-ocr.processing { pointer-events:none; }
+.btn-chrome-ocr.processing::after { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent); animation:shimmer 1.5s infinite; }
 .btn-ocr.processing { pointer-events:none; }
 .btn-ocr.processing::after { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent); animation:shimmer 1.5s infinite; }
 @keyframes shimmer { 100%{left:100%} }
@@ -100,6 +105,7 @@ select.dato-input { cursor:pointer; }
       <button class="btn btn-primary" id="btnVerificar">Verificar en el Ministerio</button>
       <button class="btn-ocr" id="btnReextractOcr">Reintentar con OCR</button>
       <button class="btn-ministerio" id="btnIrMinisterio">Ir al Ministerio</button>
+      <button class="btn-chrome-ocr" id="btnChromeOcr">Chrome OCR</button>
     </div>
   </div>
 
@@ -681,6 +687,71 @@ btnIrMinisterio.addEventListener('click', async () => {
     btnIrMinisterio.disabled = false;
     btnIrMinisterio.classList.remove('processing');
     btnIrMinisterio.textContent = 'Ir al Ministerio';
+  }
+});
+
+const btnChromeOcr = document.getElementById('btnChromeOcr');
+btnChromeOcr.addEventListener('click', async () => {
+  if (!currentId) return;
+  if (!confirm('Extraer texto con Chrome OCR? Abre el PDF en Chromium, selecciona todo y copia al portapapeles.')) return;
+
+  btnChromeOcr.disabled = true;
+  btnChromeOcr.classList.add('processing');
+  btnChromeOcr.textContent = 'Procesando...';
+  ocrStatus.classList.remove('hidden');
+  ocrStatusMsg.textContent = 'Iniciando Chrome OCR (Playwright + portapapeles)...';
+  ocrStatus.style.background = '#f0fdf4';
+  ocrStatus.style.borderColor = '#86efac';
+  ocrStatus.style.color = '#166534';
+  ocrStatus.querySelector('.ocr-spinner').style.borderColor = '#86efac';
+  ocrStatus.querySelector('.ocr-spinner').style.borderTopColor = '#16a34a';
+
+  try {
+    const res = await fetch(`/api/chrome-ocr/${currentId}`, { method: 'POST' });
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const msg = JSON.parse(line.slice(6));
+          if (msg.type === 'log') {
+            ocrStatusMsg.textContent = msg.message;
+          } else if (msg.type === 'error') {
+            ocrStatusMsg.textContent = msg.message;
+            ocrStatus.style.background = '#fef2f2';
+            ocrStatus.style.borderColor = '#fca5a5';
+            ocrStatus.style.color = '#991b1b';
+            ocrStatus.querySelector('.ocr-spinner').style.borderColor = '#fca5a5';
+            ocrStatus.querySelector('.ocr-spinner').style.borderTopColor = '#dc2626';
+          } else if (msg.type === 'done') {
+            mostrarDatos(msg.datos);
+            ocrStatus.classList.add('hidden');
+            ocrStatus.style.background = '';
+            ocrStatus.style.borderColor = '';
+            ocrStatus.style.color = '';
+            ocrStatus.querySelector('.ocr-spinner').style.borderColor = '';
+            ocrStatus.querySelector('.ocr-spinner').style.borderTopColor = '';
+          }
+        } catch (e) {}
+      }
+    }
+  } catch (e) {
+    ocrStatusMsg.textContent = 'Error en Chrome OCR';
+    ocrStatus.style.background = '#fef2f2';
+    ocrStatus.style.borderColor = '#fca5a5';
+    ocrStatus.style.color = '#991b1b';
+  } finally {
+    btnChromeOcr.disabled = false;
+    btnChromeOcr.classList.remove('processing');
+    btnChromeOcr.textContent = 'Chrome OCR';
   }
 });
 

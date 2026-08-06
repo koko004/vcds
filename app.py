@@ -382,6 +382,133 @@ async def reextract_ocr(request: Request, vid: str):
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
+@app.post("/api/chrome-ocr/{vid}")
+async def chrome_ocr(request: Request, vid: str):
+    if not await _require_auth(request):
+        raise HTTPException(401, "No autenticado")
+    v = verificaciones.get(vid)
+    if not v:
+        raise HTTPException(404, "Verificación no encontrada")
+    if v["estado"] != "extraido":
+        raise HTTPException(400, f"Estado inválido: {v['estado']}")
+
+    ruta = v["ruta_usuario"]
+    if not os.path.exists(ruta):
+        raise HTTPException(404, "Archivo PDF no encontrado")
+
+    logs = []
+
+    def on_log(msg):
+        logs.append(msg)
+
+    abs_path = os.path.abspath(ruta)
+
+    def _chrome_ocr_sync():
+        from playwright.sync_api import sync_playwright
+        texto = ""
+        on_log("Iniciando Chrome OCR (Playwright + portapapeles)...")
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                context = browser.new_context(
+                    permissions=["clipboard-read", "clipboard-write"],
+                    viewport={"width": 1280, "height": 1024},
+                )
+                page = context.new_page()
+
+                file_url = f"file://{abs_path}"
+                on_log(f"Abriendo PDF en Chromium: {abs_path}")
+                page.goto(file_url, wait_until="load", timeout=30000)
+                page.wait_for_timeout(2000)
+
+                on_log("Haciendo clic en el documento para enfocar...")
+                page.mouse.click(640, 512)
+                page.wait_for_timeout(500)
+
+                on_log("Seleccionando todo el texto (Ctrl+A)...")
+                page.keyboard.press("Control+a")
+                page.wait_for_timeout(500)
+
+                on_log("Copiando al portapapeles (Ctrl+C)...")
+                page.keyboard.press("Control+c")
+                page.wait_for_timeout(500)
+
+                on_log("Leyendo portapapeles...")
+                texto = page.evaluate("navigator.clipboard.readText()")
+
+                if not texto or not texto.strip():
+                    on_log("Portapapeles vacío, intentando con eval...")
+                    texto = page.evaluate("""() => {
+                        const sel = window.getSelection();
+                        return sel ? sel.toString() : '';
+                    }""")
+
+                if texto and texto.strip():
+                    on_log(f"Chrome OCR extraído: {len(texto)} caracteres")
+                else:
+                    on_log("Chrome OCR no extrajo texto (portapapeles restringido en headless)")
+
+                browser.close()
+        except Exception as e:
+            on_log(f"Chrome OCR error: {e}")
+        return texto
+
+    try:
+        texto = await asyncio.get_event_loop().run_in_executor(None, _chrome_ocr_sync)
+    except Exception as e:
+        raise HTTPException(500, f"Error en Chrome OCR: {e}")
+
+    if not texto or not texto.strip():
+        async def event_stream():
+            for msg in logs:
+                yield f"data: {json.dumps({'type': 'log', 'message': msg})}\n\n"
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Chrome OCR no pudo extraer texto. El portapapeles puede estar restringido en modo headless.'})}\n\n"
+        return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+    from extractor import extraer_nombre, extraer_dni, extraer_csv, extraer_fecha, extraer_no_consta
+    on_log("Parseando campos del texto extraído...")
+    nombre = extraer_nombre(texto)
+    dni = extraer_dni(texto)
+    pie = ""
+    try:
+        import fitz
+        doc = fitz.open(ruta)
+        for pagina in doc:
+            alto = pagina.height
+            umbral_y = alto * 0.80
+            bloques = pagina.get_text("dict", clip=fitz.Rect(0, umbral_y, pagina.rect.width, pagina.rect.height))
+            for bloque in bloques.get("blocks", []):
+                for linea in bloque.get("lines", []):
+                    for span in linea.get("spans", []):
+                        pie += span.get("text", "") + " "
+        doc.close()
+    except Exception:
+        pass
+    csv_val = extraer_csv(texto, pie)
+    fecha = extraer_fecha(texto, pie)
+    no_consta = extraer_no_consta(texto)
+    on_log(f"Nombre: {nombre or '(no encontrado)'}")
+    on_log(f"DNI: {dni or '(no encontrado)'}")
+    on_log(f"CSV: {csv_val or '(no encontrado)'}")
+    on_log(f"Fecha: {fecha or '(no encontrado)'}")
+    on_log(f"NO CONSTA: {no_consta}")
+
+    v["datos_extraidos"] = {
+        "nombre": nombre,
+        "dni": dni,
+        "csv": csv_val,
+        "fecha_emision": fecha,
+        "no_consta": no_consta,
+    }
+
+    async def event_stream():
+        for msg in logs:
+            yield f"data: {json.dumps({'type': 'log', 'message': msg})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'id': vid, 'datos': v['datos_extraidos']})}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
 @app.post("/api/abrir-ministerio/{vid}")
 async def abrir_ministerio(request: Request, vid: str):
     if not await _require_auth(request):
