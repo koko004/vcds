@@ -1,12 +1,15 @@
 FROM python:3.13-slim
 
-# System deps: tesseract, ghostscript, chromium deps, Xvfb
+# System deps: tesseract, ghostscript, chromium deps, Xvfb, xdotool
 RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     tesseract-ocr-spa \
     ghostscript \
     xvfb \
     chromium \
+    xdotool \
+    xsel \
+    xclip \
     fonts-liberation \
     libnss3 \
     libatk-bridge2.0-0 \

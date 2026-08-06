@@ -408,8 +408,12 @@ async def chrome_ocr(request: Request, vid: str):
 
     def _chrome_ocr_sync():
         from playwright.sync_api import sync_playwright
+        import subprocess
         texto = ""
-        on_log("Iniciando Chrome OCR (ventana visible + portapapeles)...")
+        display = os.environ.get("DISPLAY", ":99")
+        env = os.environ.copy()
+        env["DISPLAY"] = display
+        on_log(f"Iniciando Chrome OCR (display={display})...")
         try:
             with sync_playwright() as p:
                 browser = p.chromium.launch(
@@ -418,6 +422,7 @@ async def chrome_ocr(request: Request, vid: str):
                         "--no-sandbox",
                         "--disable-dev-shm-usage",
                         "--disable-blink-features=AutomationControlled",
+                        f"--display={display}",
                     ]
                 )
                 context = browser.new_context(
@@ -429,44 +434,52 @@ async def chrome_ocr(request: Request, vid: str):
                 file_url = f"file://{abs_path}"
                 on_log(f"Abriendo PDF en Chromium: {abs_path}")
                 page.goto(file_url, wait_until="load", timeout=30000)
-                page.wait_for_timeout(3000)
+                page.wait_for_timeout(4000)
 
                 on_log("Haciendo clic en el documento para enfocar...")
                 page.mouse.click(640, 512)
-                page.wait_for_timeout(500)
+                page.wait_for_timeout(1000)
 
                 on_log("Seleccionando todo el texto (Ctrl+A)...")
                 page.keyboard.press("Control+a")
-                page.wait_for_timeout(500)
+                page.wait_for_timeout(800)
 
                 on_log("Copiando al portapapeles (Ctrl+C)...")
                 page.keyboard.press("Control+c")
-                page.wait_for_timeout(500)
+                page.wait_for_timeout(800)
 
-                on_log("Leyendo portapapeles...")
-                texto = ""
+                on_log("Leyendo portapapeles via xsel...")
                 try:
-                    texto = page.evaluate("navigator.clipboard.readText()")
+                    result = subprocess.run(
+                        ["xsel", "--clipboard", "--output"],
+                        capture_output=True, text=True, timeout=5, env=env
+                    )
+                    texto = result.stdout
                 except Exception as e:
-                    on_log(f"Portapapeles no disponible: {e}")
+                    on_log(f"xsel failed: {e}")
 
                 if not texto or not texto.strip():
-                    on_log("Fallback: intentando con window.getSelection()...")
+                    on_log("Fallback: xclip...")
                     try:
-                        texto = page.evaluate("""() => {
-                            const sel = window.getSelection();
-                            return sel ? sel.toString() : '';
-                        }""")
+                        result = subprocess.run(
+                            ["xclip", "-selection", "clipboard", "-o"],
+                            capture_output=True, text=True, timeout=5, env=env
+                        )
+                        texto = result.stdout
+                    except Exception as e:
+                        on_log(f"xclip failed: {e}")
+
+                if not texto or not texto.strip():
+                    on_log("Fallback: navigator.clipboard...")
+                    try:
+                        texto = page.evaluate("navigator.clipboard.readText()")
                     except Exception:
                         pass
 
                 if not texto or not texto.strip():
-                    on_log("Fallback: intentando con document.getSelection()...")
+                    on_log("Fallback: window.getSelection()...")
                     try:
-                        texto = page.evaluate("""() => {
-                            const sel = document.getSelection();
-                            return sel ? sel.toString() : '';
-                        }""")
+                        texto = page.evaluate("() => { const s = window.getSelection(); return s ? s.toString() : ''; }")
                     except Exception:
                         pass
 
