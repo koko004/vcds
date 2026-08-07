@@ -395,47 +395,32 @@ async def chrome_ocr(request: Request, vid: str):
     ruta = v["ruta_usuario"]
     if not os.path.exists(ruta):
         raise HTTPException(404, "Archivo PDF no encontrado")
+    if not _asegurar_display():
+        v["estado"] = "error"
+        v["mensaje"] = "No hay servidor X disponible"
+        return {"ok": False, "mensaje": v["mensaje"]}
 
     abs_path = os.path.abspath(ruta)
-    logs = []
-    _log = lambda msg: logs.append(msg)
+    _log = _make_log_fn(vid)
+    v["estado"] = "navegando"
+    verificador = VerificadorWeb(vid)
 
-    async def _extraer_texto_chromium():
-        from playwright.async_api import async_playwright
+    async def tarea_chrome_ocr():
         import subprocess
-
-        display = os.environ.get("DISPLAY", ":99")
         env = os.environ.copy()
-        env["DISPLAY"] = display
         texto = ""
-
-        _asegurar_display()
-        _log(f"Display: {display}")
-
-        pw = await async_playwright().start()
         try:
-            browser = await pw.chromium.launch(
-                headless=False,
-                args=[
-                    "--no-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-blink-features=AutomationControlled",
-                ]
-            )
-            context = await browser.new_context(
-                permissions=["clipboard-read", "clipboard-write"],
-                viewport={"width": 1280, "height": 1024},
-            )
-            page = await context.new_page()
+            await verificador.iniciar()
+            v["verificador"] = verificador
 
             file_url = f"file://{abs_path}"
             _log(f"Abriendo PDF: {file_url}")
-            await page.goto(file_url, wait_until="load", timeout=30000)
-            await page.wait_for_timeout(4000)
+            await verificador._page.goto(file_url, wait_until="load", timeout=30000)
+            await verificador._page.wait_for_timeout(4000)
 
             _log("Intentando PDFViewerApplication.getTextContent()...")
             try:
-                texto = await page.evaluate("""async () => {
+                texto = await verificador._page.evaluate("""async () => {
                     try {
                         const app = window.PDFViewerApplication;
                         if (app && app.pdfDocument) {
@@ -460,12 +445,12 @@ async def chrome_ocr(request: Request, vid: str):
 
             if not texto or not texto.strip():
                 _log("Fallback: Ctrl+A / Ctrl+C via teclado...")
-                await page.mouse.click(640, 512)
-                await page.wait_for_timeout(1000)
-                await page.keyboard.press("Control+a")
-                await page.wait_for_timeout(500)
-                await page.keyboard.press("Control+c")
-                await page.wait_for_timeout(500)
+                await verificador._page.mouse.click(640, 512)
+                await verificador._page.wait_for_timeout(1000)
+                await verificador._page.keyboard.press("Control+a")
+                await verificador._page.wait_for_timeout(500)
+                await verificador._page.keyboard.press("Control+c")
+                await verificador._page.wait_for_timeout(500)
 
                 for cmd_name, cmd in [
                     ("xsel", ["xsel", "--clipboard", "--output"]),
@@ -483,77 +468,69 @@ async def chrome_ocr(request: Request, vid: str):
             if not texto or not texto.strip():
                 _log("Fallback: navigator.clipboard.readText()...")
                 try:
-                    texto = await page.evaluate("navigator.clipboard.readText()")
+                    texto = await verificador._page.evaluate("navigator.clipboard.readText()")
                 except Exception:
                     pass
 
             if not texto or not texto.strip():
                 _log("Fallback: window.getSelection()...")
                 try:
-                    texto = await page.evaluate("() => { const s = window.getSelection(); return s ? s.toString() : ''; }")
+                    texto = await verificador._page.evaluate("() => { const s = window.getSelection(); return s ? s.toString() : ''; }")
                 except Exception:
                     pass
 
-            await browser.close()
+            if not texto or not texto.strip():
+                _log("Chrome OCR no pudo extraer texto")
+                v["estado"] = "error"
+                v["mensaje"] = "Chrome OCR no pudo extraer texto"
+                return
+
+            _log(f"Texto extraído: {len(texto)} caracteres")
+            _log("Parseando campos...")
+            from extractor import extraer_nombre, extraer_dni, extraer_csv, extraer_fecha, extraer_no_consta
+            nombre = extraer_nombre(texto)
+            dni = extraer_dni(texto)
+            pie = ""
+            try:
+                import fitz
+                doc = fitz.open(ruta)
+                for pagina in doc:
+                    alto = pagina.height
+                    umbral_y = alto * 0.80
+                    bloques = pagina.get_text("dict", clip=fitz.Rect(0, umbral_y, pagina.rect.width, pagina.rect.height))
+                    for bloque in bloques.get("blocks", []):
+                        for linea in bloque.get("lines", []):
+                            for span in linea.get("spans", []):
+                                pie += span.get("text", "") + " "
+                doc.close()
+            except Exception:
+                pass
+            csv_val = extraer_csv(texto, pie)
+            fecha = extraer_fecha(texto, pie)
+            no_consta = extraer_no_consta(texto)
+            _log(f"Nombre: {nombre or '(no encontrado)'}")
+            _log(f"DNI: {dni or '(no encontrado)'}")
+            _log(f"CSV: {csv_val or '(no encontrado)'}")
+            _log(f"Fecha: {fecha or '(no encontrado)'}")
+            _log(f"NO CONSTA: {no_consta}")
+            v["datos_extraidos"] = {
+                "nombre": nombre, "dni": dni, "csv": csv_val,
+                "fecha_emision": fecha, "no_consta": no_consta,
+            }
+            v["estado"] = "completo"
         except Exception as e:
-            _log(f"Error Chromium: {e}")
+            _log(f"Error Chrome OCR: {e}")
+            v["estado"] = "error"
+            v["mensaje"] = str(e)
         finally:
-            await pw.stop()
+            try:
+                await verificador.cerrar()
+            except Exception:
+                pass
+            v["verificador"] = None
 
-        return texto
-
-    texto = ""
-    try:
-        texto = await _extraer_texto_chromium()
-    except Exception as e:
-        _log(f"Error general: {e}")
-
-    if not texto or not texto.strip():
-        _log("Chrome OCR no pudo extraer texto")
-
-    from extractor import extraer_nombre, extraer_dni, extraer_csv, extraer_fecha, extraer_no_consta
-    if texto and texto.strip():
-        _log(f"Texto extraído: {len(texto)} caracteres")
-        _log("Parseando campos...")
-        nombre = extraer_nombre(texto)
-        dni = extraer_dni(texto)
-        pie = ""
-        try:
-            import fitz
-            doc = fitz.open(ruta)
-            for pagina in doc:
-                alto = pagina.height
-                umbral_y = alto * 0.80
-                bloques = pagina.get_text("dict", clip=fitz.Rect(0, umbral_y, pagina.rect.width, pagina.rect.height))
-                for bloque in bloques.get("blocks", []):
-                    for linea in bloque.get("lines", []):
-                        for span in linea.get("spans", []):
-                            pie += span.get("text", "") + " "
-            doc.close()
-        except Exception:
-            pass
-        csv_val = extraer_csv(texto, pie)
-        fecha = extraer_fecha(texto, pie)
-        no_consta = extraer_no_consta(texto)
-        _log(f"Nombre: {nombre or '(no encontrado)'}")
-        _log(f"DNI: {dni or '(no encontrado)'}")
-        _log(f"CSV: {csv_val or '(no encontrado)'}")
-        _log(f"Fecha: {fecha or '(no encontrado)'}")
-        _log(f"NO CONSTA: {no_consta}")
-        v["datos_extraidos"] = {
-            "nombre": nombre, "dni": dni, "csv": csv_val,
-            "fecha_emision": fecha, "no_consta": no_consta,
-        }
-
-    async def event_stream():
-        for msg in logs:
-            yield f"data: {json.dumps({'type': 'log', 'message': msg})}\n\n"
-        if texto and texto.strip():
-            yield f"data: {json.dumps({'type': 'done', 'id': vid, 'datos': v['datos_extraidos']})}\n\n"
-        else:
-            yield f"data: {json.dumps({'type': 'error', 'message': 'Chrome OCR no pudo extraer texto'})}\n\n"
-
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+    asyncio.create_task(tarea_chrome_ocr())
+    return {"ok": True, "mensaje": "Chrome OCR iniciado"}
 
 
 @app.post("/api/abrir-ministerio/{vid}")

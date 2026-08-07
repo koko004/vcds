@@ -693,62 +693,53 @@ btnIrMinisterio.addEventListener('click', async () => {
 const btnChromeOcr = document.getElementById('btnChromeOcr');
 btnChromeOcr.addEventListener('click', async () => {
   if (!currentId) return;
-  if (!confirm('Extraer texto con Chrome OCR? Abre el PDF en Chromium, selecciona todo y copia al portapapeles.')) return;
+  if (!confirm('Extraer texto con Chrome OCR? Se abrirá Chromium con el PDF y podrás ver el visor.')) return;
 
   btnChromeOcr.disabled = true;
   btnChromeOcr.classList.add('processing');
-  btnChromeOcr.textContent = 'Procesando...';
-  ocrStatus.classList.remove('hidden');
-  ocrStatusMsg.textContent = 'Iniciando Chrome OCR (Playwright + portapapeles)...';
-  ocrStatus.style.background = '#f0fdf4';
-  ocrStatus.style.borderColor = '#86efac';
-  ocrStatus.style.color = '#166534';
-  ocrStatus.querySelector('.ocr-spinner').style.borderColor = '#86efac';
-  ocrStatus.querySelector('.ocr-spinner').style.borderTopColor = '#16a34a';
+  btnChromeOcr.textContent = 'Iniciando...';
+
+  datosCard.classList.add('hidden');
+  visorCard.classList.remove('hidden');
+  resultadoCard.classList.add('hidden');
+  loadingState.style.display = 'block';
+  visorContent.style.display = 'none';
+  btnListo.disabled = true;
+  btnListo.textContent = 'Iniciando Chrome OCR...';
+
+  let msgIdx = 0;
+  const msgs = ['Abriendo Chromium...', 'Cargando PDF en visor...', 'Extrayendo texto...', 'Parseando campos...'];
+  const msgInterval = setInterval(() => {
+    msgIdx = Math.min(msgIdx + 1, msgs.length - 1);
+    loadingMsg.textContent = msgs[msgIdx];
+  }, 3000);
 
   try {
     const res = await fetch(`/api/chrome-ocr/${currentId}`, { method: 'POST' });
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
+    const data = await res.json();
+    clearInterval(msgInterval);
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        try {
-          const msg = JSON.parse(line.slice(6));
-          if (msg.type === 'log') {
-            ocrStatusMsg.textContent = msg.message;
-          } else if (msg.type === 'error') {
-            ocrStatusMsg.textContent = msg.message;
-            ocrStatus.style.background = '#fef2f2';
-            ocrStatus.style.borderColor = '#fca5a5';
-            ocrStatus.style.color = '#991b1b';
-            ocrStatus.querySelector('.ocr-spinner').style.borderColor = '#fca5a5';
-            ocrStatus.querySelector('.ocr-spinner').style.borderTopColor = '#dc2626';
-          } else if (msg.type === 'done') {
-            mostrarDatos(msg.datos);
-            ocrStatus.classList.add('hidden');
-            ocrStatus.style.background = '';
-            ocrStatus.style.borderColor = '';
-            ocrStatus.style.color = '';
-            ocrStatus.querySelector('.ocr-spinner').style.borderColor = '';
-            ocrStatus.querySelector('.ocr-spinner').style.borderTopColor = '';
-          }
-        } catch (e) {}
-      }
+    if (!res.ok || !data.ok) {
+      loadingState.style.display = 'none';
+      visorContent.style.display = 'none';
+      alert(data.detail || data.mensaje || 'Error al iniciar Chrome OCR');
+      btnChromeOcr.disabled = false;
+      btnChromeOcr.classList.remove('processing');
+      btnChromeOcr.textContent = 'Chrome OCR';
+      return;
     }
+
+    pollStatus();
+    startScreenshot();
+
+    btnListo.disabled = false;
+    btnListo.textContent = 'Chrome OCR en progreso - viendo el visor arriba';
+    btnListo.onclick = () => {};
   } catch (e) {
-    ocrStatusMsg.textContent = 'Error en Chrome OCR';
-    ocrStatus.style.background = '#fef2f2';
-    ocrStatus.style.borderColor = '#fca5a5';
-    ocrStatus.style.color = '#991b1b';
-  } finally {
+    clearInterval(msgInterval);
+    loadingState.style.display = 'none';
+    visorContent.style.display = 'none';
+    alert('Error al iniciar Chrome OCR');
     btnChromeOcr.disabled = false;
     btnChromeOcr.classList.remove('processing');
     btnChromeOcr.textContent = 'Chrome OCR';
