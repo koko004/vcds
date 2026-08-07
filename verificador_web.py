@@ -136,7 +136,7 @@ class VerificadorWeb:
         except Exception:
             pass
 
-    async def iniciar(self):
+    async def iniciar(self, executable_path: str = None):
         os.makedirs(DIR_DESCARGAS, exist_ok=True)
         os.makedirs(USER_DATA, exist_ok=True)
         config = _cargar_config()
@@ -146,6 +146,8 @@ class VerificadorWeb:
         captcha_2captcha = config.get("captcha_2captcha_enabled", False)
 
         headless = captcha_2captcha and not extension_enabled
+        if executable_path:
+            headless = False
 
         if not headless:
             _asegurar_display()
@@ -179,7 +181,7 @@ class VerificadorWeb:
         _limpiar_profile(user_data)
 
         self._pw = await async_playwright().start()
-        self._context = await self._pw.chromium.launch_persistent_context(
+        launch_kwargs = dict(
             user_data_dir=user_data,
             headless=headless,
             args=args,
@@ -191,6 +193,9 @@ class VerificadorWeb:
             proxy=proxy_config,
             ignore_https_errors=True,
         )
+        if executable_path:
+            launch_kwargs["executable_path"] = executable_path
+        self._context = await self._pw.chromium.launch_persistent_context(**launch_kwargs)
 
         self._ext_id = None
         if extension_enabled and captcha_key:

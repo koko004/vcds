@@ -452,60 +452,71 @@ async def chrome_ocr(request: Request, vid: str):
 
     async def tarea_chrome_ocr():
         import subprocess
+        import threading
+        from http.server import HTTPServer, SimpleHTTPRequestHandler
         env = os.environ.copy()
         texto = ""
+        httpd = None
         try:
-            await verificador.iniciar()
+            _log("Iniciando Chromium completo con visor PDF nativo...")
+            chromium_path = "/usr/bin/chromium"
+            if not os.path.exists(chromium_path):
+                chromium_path = "/usr/bin/chromium-browser"
+            if not os.path.exists(chromium_path):
+                import glob as g
+                candidates = g.glob("/root/.cache/ms-playwright/chromium-*/chrome-linux64/chrome")
+                chromium_path = candidates[0] if candidates else None
+            if not chromium_path or not os.path.exists(chromium_path):
+                _log("ERROR: No se encontro Chromium completo")
+                v["estado"] = "error"
+                v["mensaje"] = "Chromium completo no encontrado"
+                return
+            _log(f"Usando Chromium: {chromium_path}")
+            await verificador.iniciar(executable_path=chromium_path)
             v["verificador"] = verificador
 
-            pdf_url = f"http://localhost:8000/pdf-viewer/{vid}"
-            _log(f"Abriendo PDF viewer: {pdf_url}")
+            _log("Iniciando servidor HTTP local para servir el PDF...")
+            uploads_dir = os.path.dirname(abs_path)
+
+            class PDFHandler(SimpleHTTPRequestHandler):
+                def __init__(self, *args, **kwargs):
+                    super().__init__(*args, directory=uploads_dir, **kwargs)
+                def log_message(self, *a):
+                    pass
+
+            httpd = HTTPServer(("127.0.0.1", 0), PDFHandler)
+            port = httpd.server_address[1]
+            thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+            thread.start()
+            _log(f"Servidor HTTP en puerto {port}")
+
+            filename = os.path.basename(abs_path)
+            pdf_url = f"http://127.0.0.1:{port}/{filename}"
+            _log(f"Abriendo PDF en Chromium: {pdf_url}")
             await verificador._page.goto(pdf_url, wait_until="load", timeout=30000)
-            await verificador._page.wait_for_timeout(5000)
+            await verificador._page.wait_for_timeout(6000)
 
-            _log("Intentando extraer texto con pdf.js getTextContent()...")
-            try:
-                js_code = """async () => {
-                    try {
-                        if (typeof pdfjsLib === 'undefined') return '';
-                        const resp = await fetch('/static-pdf/""" + vid + """.pdf');
-                        const data = await resp.arrayBuffer();
-                        const pdf = await pdfjsLib.getDocument({data: data}).promise;
-                        let allText = [];
-                        for (let i = 1; i <= pdf.numPages; i++) {
-                            const pg = await pdf.getPage(i);
-                            const content = await pg.getTextContent();
-                            allText.push(content.items.map(j => j.str).join(' '));
-                        }
-                        return allText.join('\\n');
-                    } catch(e) { return 'ERR:' + e.message; }
-                }"""
-                texto = await verificador._page.evaluate(js_code)
-                if texto and texto.startswith("ERR:"):
-                    _log(f"pdf.js error: {texto}")
-                    texto = ""
-            except Exception as e:
-                _log(f"pdf.js exception: {e}")
-
-            if not texto or not texto.strip():
-                _log("PDF escaneado detectado, usando screenshot + Tesseract OCR...")
-                try:
-                    screenshot_path = os.path.join(DIR_UPLOADS, f"{vid}_ocr.png")
-                    await verificador._page.screenshot(path=screenshot_path, full_page=True)
-                    _log(f"Screenshot guardado: {screenshot_path}")
-                    import subprocess
-                    env = os.environ.copy()
-                    result = subprocess.run(
-                        ["tesseract", screenshot_path, "stdout", "-l", "spa+eng", "--psm", "6"],
-                        capture_output=True, text=True, timeout=30, env=env
-                    )
-                    texto = result.stdout.strip()
-                    if texto:
-                        _log(f"Tesseract OCR: {len(texto)} caracteres extraidos")
-                    else:
-                        _log("Tesseract no devolvió texto")
-                except Exception as e:
-                    _log(f"Screenshot+OCR error: {e}")
+            _log("Extrayendo texto via PyMuPDF (server-side)...")
+            import fitz
+            doc = fitz.open(ruta)
+            all_text = []
+            for page in doc:
+                all_text.append(page.get_text())
+            doc.close()
+            texto = "\n".join(all_text).strip()
+            if texto:
+                _log(f"Texto via PyMuPDF: {len(texto)} chars")
+            else:
+                _log("PyMuPDF no devolvió texto, intentando Tesseract...")
+                screenshot_path = os.path.join(DIR_UPLOADS, f"{vid}_ocr.png")
+                await verificador._page.screenshot(path=screenshot_path, full_page=True)
+                result = subprocess.run(
+                    ["tesseract", screenshot_path, "stdout", "-l", "spa+eng", "--psm", "6"],
+                    capture_output=True, text=True, timeout=30, env=env
+                )
+                texto = result.stdout.strip()
+                if texto:
+                    _log(f"Texto via Tesseract: {len(texto)} chars")
 
             if not texto or not texto.strip():
                 _log("Chrome OCR no pudo extraer texto")
@@ -551,6 +562,11 @@ async def chrome_ocr(request: Request, vid: str):
             v["estado"] = "error"
             v["mensaje"] = str(e)
         finally:
+            if httpd:
+                try:
+                    httpd.shutdown()
+                except Exception:
+                    pass
             try:
                 await verificador.cerrar()
             except Exception:
