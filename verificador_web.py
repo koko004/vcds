@@ -136,7 +136,7 @@ class VerificadorWeb:
         except Exception:
             pass
 
-    async def iniciar(self, executable_path: str = None):
+    async def iniciar(self, executable_path: str = None, chrome_ocr_mode: bool = False):
         os.makedirs(DIR_DESCARGAS, exist_ok=True)
         os.makedirs(USER_DATA, exist_ok=True)
         config = _cargar_config()
@@ -161,6 +161,9 @@ class VerificadorWeb:
             "--metrics-recording-only",
             "--disable-background-networking",
         ]
+
+        if chrome_ocr_mode:
+            args.append("--disable-web-security")
 
         if extension_enabled and os.path.isdir(DIR_EXTENSION):
             args.append(f"--disable-extensions-except={DIR_EXTENSION}")
@@ -196,6 +199,9 @@ class VerificadorWeb:
         if executable_path:
             launch_kwargs["executable_path"] = executable_path
         self._context = await self._pw.chromium.launch_persistent_context(**launch_kwargs)
+
+        if chrome_ocr_mode:
+            await self._context.grant_permissions(["clipboard-read", "clipboard-write"])
 
         self._ext_id = None
         if extension_enabled and captcha_key:

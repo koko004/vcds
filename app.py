@@ -448,17 +448,13 @@ async def chrome_ocr(request: Request, vid: str):
     abs_path = os.path.abspath(ruta)
     _log = _make_log_fn(vid)
     v["estado"] = "navegando"
-    verificador = VerificadorWeb(vid)
 
     async def tarea_chrome_ocr():
-        import subprocess
-        import threading
-        from http.server import HTTPServer, SimpleHTTPRequestHandler
-        env = os.environ.copy()
+        from playwright.async_api import async_playwright
+        import platform
         texto = ""
-        httpd = None
+        pw = None
         try:
-            _log("Iniciando Chromium completo con visor PDF nativo...")
             chromium_path = "/usr/bin/chromium"
             if not os.path.exists(chromium_path):
                 chromium_path = "/usr/bin/chromium-browser"
@@ -472,51 +468,41 @@ async def chrome_ocr(request: Request, vid: str):
                 v["mensaje"] = "Chromium completo no encontrado"
                 return
             _log(f"Usando Chromium: {chromium_path}")
-            await verificador.iniciar(executable_path=chromium_path)
-            v["verificador"] = verificador
 
-            _log("Iniciando servidor HTTP local para servir el PDF...")
-            uploads_dir = os.path.dirname(abs_path)
+            _asegurar_display()
 
-            class PDFHandler(SimpleHTTPRequestHandler):
-                def __init__(self, *args, **kwargs):
-                    super().__init__(*args, directory=uploads_dir, **kwargs)
-                def log_message(self, *a):
-                    pass
+            _log("Lanzando Chromium con permisos de portapapeles...")
+            pw = await async_playwright().start()
+            browser = await pw.chromium.launch(
+                headless=True,
+                executable_path=chromium_path,
+                args=["--no-sandbox", "--disable-web-security"]
+            )
+            context = await browser.new_context(
+                permissions=["clipboard-read", "clipboard-write"]
+            )
+            page = await context.new_page()
 
-            httpd = HTTPServer(("127.0.0.1", 0), PDFHandler)
-            port = httpd.server_address[1]
-            thread = threading.Thread(target=httpd.serve_forever, daemon=True)
-            thread.start()
-            _log(f"Servidor HTTP en puerto {port}")
+            file_url = f"file://{abs_path}"
+            _log(f"Abriendo PDF: {file_url}")
+            await page.goto(file_url, timeout=30000)
+            await page.wait_for_timeout(3000)
 
-            filename = os.path.basename(abs_path)
-            pdf_url = f"http://127.0.0.1:{port}/{filename}"
-            _log(f"Abriendo PDF en Chromium: {pdf_url}")
-            await verificador._page.goto(pdf_url, wait_until="load", timeout=30000)
-            await verificador._page.wait_for_timeout(6000)
+            _log("Clic en el visor para foco...")
+            await page.mouse.click(640, 450)
+            await page.wait_for_timeout(500)
 
-            _log("Extrayendo texto via PyMuPDF (server-side)...")
-            import fitz
-            doc = fitz.open(ruta)
-            all_text = []
-            for page in doc:
-                all_text.append(page.get_text())
-            doc.close()
-            texto = "\n".join(all_text).strip()
-            if texto:
-                _log(f"Texto via PyMuPDF: {len(texto)} chars")
-            else:
-                _log("PyMuPDF no devolvió texto, intentando Tesseract...")
-                screenshot_path = os.path.join(DIR_UPLOADS, f"{vid}_ocr.png")
-                await verificador._page.screenshot(path=screenshot_path, full_page=True)
-                result = subprocess.run(
-                    ["tesseract", screenshot_path, "stdout", "-l", "spa+eng", "--psm", "6"],
-                    capture_output=True, text=True, timeout=30, env=env
-                )
-                texto = result.stdout.strip()
-                if texto:
-                    _log(f"Texto via Tesseract: {len(texto)} chars")
+            modifier = "Meta" if platform.system() == "Darwin" else "Control"
+            _log(f"{modifier}+A (seleccionar todo)...")
+            await page.keyboard.press(f"{modifier}+a")
+            await page.wait_for_timeout(500)
+
+            _log(f"{modifier}+C (copiar)...")
+            await page.keyboard.press(f"{modifier}+c")
+            await page.wait_for_timeout(500)
+
+            _log("Leyendo portapapeles...")
+            texto = await page.evaluate("navigator.clipboard.readText()")
 
             if not texto or not texto.strip():
                 _log("Chrome OCR no pudo extraer texto")
@@ -562,13 +548,14 @@ async def chrome_ocr(request: Request, vid: str):
             v["estado"] = "error"
             v["mensaje"] = str(e)
         finally:
-            if httpd:
-                try:
-                    httpd.shutdown()
-                except Exception:
-                    pass
             try:
-                await verificador.cerrar()
+                if 'browser' in dir() and browser:
+                    await browser.close()
+            except Exception:
+                pass
+            try:
+                if pw:
+                    await pw.stop()
             except Exception:
                 pass
             v["verificador"] = None
