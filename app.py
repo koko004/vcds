@@ -387,7 +387,7 @@ async def serve_pdf(filename: str):
     import re
     if not re.match(r'^[a-f0-9]+\.pdf$', filename):
         raise HTTPException(400, "Invalid filename")
-    path = os.path.join(UPLOAD_DIR, filename)
+    path = os.path.join(DIR_UPLOADS, filename)
     if not os.path.exists(path):
         raise HTTPException(404, "PDF not found")
     from fastapi.responses import FileResponse
