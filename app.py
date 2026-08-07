@@ -382,6 +382,18 @@ async def reextract_ocr(request: Request, vid: str):
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
+@app.get("/static-pdf/{filename}")
+async def serve_pdf(filename: str):
+    import re
+    if not re.match(r'^[a-f0-9]+\.pdf$', filename):
+        raise HTTPException(400, "Invalid filename")
+    path = os.path.join(UPLOAD_DIR, filename)
+    if not os.path.exists(path):
+        raise HTTPException(404, "PDF not found")
+    from fastapi.responses import FileResponse
+    return FileResponse(path, media_type="application/pdf")
+
+
 @app.post("/api/chrome-ocr/{vid}")
 async def chrome_ocr(request: Request, vid: str):
     if not await _require_auth(request):
@@ -413,9 +425,9 @@ async def chrome_ocr(request: Request, vid: str):
             await verificador.iniciar()
             v["verificador"] = verificador
 
-            file_url = f"file://{abs_path}"
-            _log(f"Abriendo PDF: {file_url}")
-            await verificador._page.goto(file_url, wait_until="load", timeout=30000)
+            pdf_url = f"http://localhost:8000/static-pdf/{vid}.pdf"
+            _log(f"Abriendo PDF: {pdf_url}")
+            await verificador._page.goto(pdf_url, wait_until="load", timeout=30000)
             await verificador._page.wait_for_timeout(4000)
 
             _log("Intentando PDFViewerApplication.getTextContent()...")
