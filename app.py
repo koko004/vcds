@@ -463,7 +463,7 @@ async def chrome_ocr(request: Request, vid: str):
             await verificador._page.goto(pdf_url, wait_until="load", timeout=30000)
             await verificador._page.wait_for_timeout(5000)
 
-            _log("Intentando extraer texto con pdf.js...")
+            _log("Intentando extraer texto con pdf.js getTextContent()...")
             try:
                 js_code = """async () => {
                     try {
@@ -488,40 +488,24 @@ async def chrome_ocr(request: Request, vid: str):
                 _log(f"pdf.js exception: {e}")
 
             if not texto or not texto.strip():
-                _log("Fallback: Ctrl+A / Ctrl+C via teclado...")
-                await verificador._page.mouse.click(640, 512)
-                await verificador._page.wait_for_timeout(1000)
-                await verificador._page.keyboard.press("Control+a")
-                await verificador._page.wait_for_timeout(500)
-                await verificador._page.keyboard.press("Control+c")
-                await verificador._page.wait_for_timeout(500)
-
-                for cmd_name, cmd in [
-                    ("xsel", ["xsel", "--clipboard", "--output"]),
-                    ("xclip", ["xclip", "-selection", "clipboard", "-o"]),
-                ]:
-                    try:
-                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=5, env=env)
-                        if result.stdout.strip():
-                            texto = result.stdout
-                            _log(f"Texto via {cmd_name}: {len(texto)} chars")
-                            break
-                    except Exception as e:
-                        _log(f"{cmd_name} failed: {e}")
-
-            if not texto or not texto.strip():
-                _log("Fallback: navigator.clipboard.readText()...")
+                _log("PDF escaneado detectado, usando screenshot + Tesseract OCR...")
                 try:
-                    texto = await verificador._page.evaluate("navigator.clipboard.readText()")
-                except Exception:
-                    pass
-
-            if not texto or not texto.strip():
-                _log("Fallback: window.getSelection()...")
-                try:
-                    texto = await verificador._page.evaluate("() => { const s = window.getSelection(); return s ? s.toString() : ''; }")
-                except Exception:
-                    pass
+                    screenshot_path = os.path.join(DIR_UPLOADS, f"{vid}_ocr.png")
+                    await verificador._page.screenshot(path=screenshot_path, full_page=True)
+                    _log(f"Screenshot guardado: {screenshot_path}")
+                    import subprocess
+                    env = os.environ.copy()
+                    result = subprocess.run(
+                        ["tesseract", screenshot_path, "stdout", "-l", "spa+eng", "--psm", "6"],
+                        capture_output=True, text=True, timeout=30, env=env
+                    )
+                    texto = result.stdout.strip()
+                    if texto:
+                        _log(f"Tesseract OCR: {len(texto)} caracteres extraidos")
+                    else:
+                        _log("Tesseract no devolvió texto")
+                except Exception as e:
+                    _log(f"Screenshot+OCR error: {e}")
 
             if not texto or not texto.strip():
                 _log("Chrome OCR no pudo extraer texto")
