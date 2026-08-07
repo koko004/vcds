@@ -394,6 +394,39 @@ async def serve_pdf(filename: str):
     return FileResponse(path, media_type="application/pdf")
 
 
+@app.get("/pdf-viewer/{vid}")
+async def pdf_viewer(vid: str):
+    from fastapi.responses import HTMLResponse
+    pdf_url = f"/static-pdf/{vid}.pdf"
+    html = f"""<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8"><title>PDF Viewer</title>
+<style>body{{margin:0;background:#525659;}}#viewer{{width:100vw;height:100vh;}}</style>
+</head><body>
+<canvas id="viewer"></canvas>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+async function render(){{
+  const pdf=await pdfjsLib.getDocument('{pdf_url}').promise;
+  const canvas=document.getElementById('viewer');
+  const ctx=canvas.getContext('2d');
+  let y=0;
+  for(let i=1;i<=pdf.numPages;i++){{
+    const pg=await pdf.getPage(i);
+    const scale=2;
+    const vp=pg.getViewport({{scale}});
+    canvas.width=vp.width;
+    canvas.height=vp.height;
+    await pg.render({{canvasContext:ctx,viewport:vp}}).promise;
+    y+=vp.height;
+  }}
+}}
+render();
+</script></body></html>"""
+    return HTMLResponse(html)
+
+
 @app.post("/api/chrome-ocr/{vid}")
 async def chrome_ocr(request: Request, vid: str):
     if not await _require_auth(request):
@@ -425,35 +458,34 @@ async def chrome_ocr(request: Request, vid: str):
             await verificador.iniciar()
             v["verificador"] = verificador
 
-            pdf_url = f"http://localhost:8000/static-pdf/{vid}.pdf"
-            _log(f"Abriendo PDF: {pdf_url}")
+            pdf_url = f"http://localhost:8000/pdf-viewer/{vid}"
+            _log(f"Abriendo PDF viewer: {pdf_url}")
             await verificador._page.goto(pdf_url, wait_until="load", timeout=30000)
-            await verificador._page.wait_for_timeout(4000)
+            await verificador._page.wait_for_timeout(5000)
 
-            _log("Intentando PDFViewerApplication.getTextContent()...")
+            _log("Intentando extraer texto con pdf.js...")
             try:
-                texto = await verificador._page.evaluate("""async () => {
+                js_code = """async () => {
                     try {
-                        const app = window.PDFViewerApplication;
-                        if (app && app.pdfDocument) {
-                            const pdf = app.pdfDocument;
-                            const numPages = pdf.numPages;
-                            let allText = [];
-                            for (let i = 1; i <= numPages; i++) {
-                                const pg = await pdf.getPage(i);
-                                const content = await pg.getTextContent();
-                                allText.push(content.items.map(j => j.str).join(' '));
-                            }
-                            return allText.join('\\n');
+                        if (typeof pdfjsLib === 'undefined') return '';
+                        const resp = await fetch('/static-pdf/""" + vid + """.pdf');
+                        const data = await resp.arrayBuffer();
+                        const pdf = await pdfjsLib.getDocument({data: data}).promise;
+                        let allText = [];
+                        for (let i = 1; i <= pdf.numPages; i++) {
+                            const pg = await pdf.getPage(i);
+                            const content = await pg.getTextContent();
+                            allText.push(content.items.map(j => j.str).join(' '));
                         }
+                        return allText.join('\\n');
                     } catch(e) { return 'ERR:' + e.message; }
-                    return '';
-                }""")
+                }"""
+                texto = await verificador._page.evaluate(js_code)
                 if texto and texto.startswith("ERR:"):
-                    _log(f"PDFViewerApplication error: {texto}")
+                    _log(f"pdf.js error: {texto}")
                     texto = ""
             except Exception as e:
-                _log(f"PDFViewerApplication exception: {e}")
+                _log(f"pdf.js exception: {e}")
 
             if not texto or not texto.strip():
                 _log("Fallback: Ctrl+A / Ctrl+C via teclado...")
