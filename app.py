@@ -19,7 +19,7 @@ from extractor import extraer_datos, extraer_datos_ocr
 from verificador_web import VerificadorWeb, _asegurar_display
 from comparador import comparar
 
-VERSION = "1.0.24"
+VERSION = "1.0.25"
 
 app = FastAPI(title="Verificador de Certificados")
 app.add_middleware(
@@ -478,8 +478,75 @@ async def chrome_ocr(request: Request, vid: str):
             v["chrome_context"] = context
             v["chrome_page"] = page
 
-            v["mensaje"] = "PDF abierto en Google Chrome"
-            v["estado"] = "navegando"
+            _log("Clic en el visor para foco...")
+            await page.mouse.click(700, 500)
+            await page.wait_for_timeout(2000)
+
+            _log("Ctrl+A - seleccionando texto...")
+            await page.keyboard.press("Control+a")
+            _log("Esperando 5s para ver selección...")
+            await page.wait_for_timeout(5000)
+
+            _log("Ctrl+C - copiando texto...")
+            await page.keyboard.press("Control+c")
+            _log("Esperando 5s para ver copia...")
+            await page.wait_for_timeout(5000)
+
+            _log("Leyendo texto seleccionado del DOM...")
+            texto = await page.evaluate("""() => {
+                const sel = window.getSelection();
+                if (sel && sel.toString().trim()) return sel.toString();
+                const spans = document.querySelectorAll('#viewer .page .textLayer span, #viewer span, .page span');
+                let all = '';
+                for (const s of spans) all += s.textContent + ' ';
+                return all.trim();
+            }""")
+
+            if not texto or not texto.strip():
+                _log("Chrome OCR: no se pudo extraer texto del DOM")
+                v["estado"] = "error"
+                v["mensaje"] = "No se pudo extraer texto. Intenta seleccionar manualmente con Ctrl+A y Ctrl+C."
+                return
+
+            _log(f"Texto extraído: {len(texto)} caracteres")
+            _log(f"Vista previa: {texto[:300]}...")
+
+            from extractor import extraer_nombre, extraer_dni, extraer_csv, extraer_fecha, extraer_no_consta
+            nombre = extraer_nombre(texto)
+            dni = extraer_dni(texto)
+
+            pie = ""
+            try:
+                import fitz
+                doc = fitz.open(ruta)
+                for pagina in doc:
+                    alto = pagina.height
+                    umbral_y = alto * 0.80
+                    bloques = pagina.get_text("dict", clip=fitz.Rect(0, umbral_y, pagina.rect.width, pagina.rect.height))
+                    for bloque in bloques.get("blocks", []):
+                        for linea in bloque.get("lines", []):
+                            for span in linea.get("spans", []):
+                                pie += span.get("text", "") + " "
+                doc.close()
+            except Exception:
+                pass
+
+            csv_val = extraer_csv(texto, pie)
+            fecha = extraer_fecha(texto, pie)
+            no_consta = extraer_no_consta(texto)
+
+            _log(f"Nombre: {nombre or '(no encontrado)'}")
+            _log(f"DNI: {dni or '(no encontrado)'}")
+            _log(f"CSV: {csv_val or '(no encontrado)'}")
+            _log(f"Fecha: {fecha or '(no encontrado)'}")
+            _log(f"NO CONSTA: {no_consta}")
+
+            v["datos_extraidos"] = {
+                "nombre": nombre, "dni": dni, "csv": csv_val,
+                "fecha_emision": fecha, "no_consta": no_consta,
+            }
+            v["estado"] = "completo"
+            _log("Extracción Chrome OCR completada")
 
         except Exception as e:
             _log(f"Error Chrome OCR: {e}")
