@@ -129,6 +129,9 @@ select.dato-input { cursor:pointer; }
         <button class="btn btn-secondary" id="btnType">Escribir</button>
         <button class="btn btn-secondary" id="btnEnter">Enter</button>
         <button class="btn btn-secondary" id="btnTab">Tab</button>
+        <button class="btn btn-secondary" id="btnCtrlA" style="background:#7c3aed;color:#fff">Ctrl+A</button>
+        <button class="btn btn-secondary" id="btnCtrlC" style="background:#7c3aed;color:#fff">Ctrl+C</button>
+        <button class="btn btn-secondary" id="btnRefrescarClipboard" style="background:#059669;color:#fff">Leer portapapeles</button>
         <button class="btn btn-secondary" id="btnRefresh">Refrescar</button>
         <button class="btn btn-secondary" id="btnRestart" style="background:#f59e0b;color:#fff">Reiniciar navegador</button>
         <button class="btn btn-secondary" id="btnBack" style="display:none;background:#2563eb;color:#fff">Volver al Ministerio</button>
@@ -912,6 +915,40 @@ btnTab.addEventListener('click', async () => {
       body: JSON.stringify({ tecla: 'Tab' }),
     });
   } catch (err) {}
+});
+
+const btnCtrlA = document.getElementById('btnCtrlA');
+const btnCtrlC = document.getElementById('btnCtrlC');
+const btnRefrescarClipboard = document.getElementById('btnRefrescarClipboard');
+
+btnCtrlA.addEventListener('click', async () => {
+  try {
+    await fetch(`/api/verify/${currentId}/key`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tecla: 'Control+a' }),
+    });
+  } catch (err) {}
+});
+
+btnCtrlC.addEventListener('click', async () => {
+  try {
+    await fetch(`/api/verify/${currentId}/key`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tecla: 'Control+c' }),
+    });
+  } catch (err) {}
+});
+
+btnRefrescarClipboard.addEventListener('click', async () => {
+  try {
+    const res = await fetch(`/api/verify/${currentId}/chrome-clipboard`);
+    const data = await res.json();
+    alert(data.texto ? `Portapapeles:\n\n${data.texto}` : 'Portapapeles vacío');
+  } catch (err) {
+    alert('Error leyendo portapapeles: ' + err.message);
+  }
 });
 
 btnRefresh.addEventListener('click', async () => {

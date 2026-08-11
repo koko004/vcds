@@ -19,7 +19,7 @@ from extractor import extraer_datos, extraer_datos_ocr
 from verificador_web import VerificadorWeb, _asegurar_display
 from comparador import comparar
 
-VERSION = "1.0.22"
+VERSION = "1.0.23"
 
 app = FastAPI(title="Verificador de Certificados")
 app.add_middleware(
@@ -478,98 +478,8 @@ async def chrome_ocr(request: Request, vid: str):
             v["chrome_context"] = context
             v["chrome_page"] = page
 
-            _log("Clic en el visor para foco...")
-            await page.mouse.click(700, 500)
-            await page.wait_for_timeout(500)
-
-            _log("Ctrl+A (seleccionar todo)...")
-            await page.keyboard.press("Control+a")
-            await page.wait_for_timeout(1000)
-
-            _log("Ctrl+C (copiar)...")
-            await page.keyboard.press("Control+c")
-            await page.wait_for_timeout(1000)
-
-            _log("Leyendo portapapeles via Playwright...")
-            texto = ""
-            try:
-                texto = await page.evaluate("navigator.clipboard.readText()")
-            except Exception as e:
-                _log(f"clipboard.readText() error: {e}")
-
-            if not texto or not texto.strip():
-                _log("Playwright clipboard vacío. Intentando via CDP...")
-                try:
-                    cdp = await context.new_cdp_session(page)
-                    await cdp.send("Browser.grantPermissions", {
-                        "permissions": ["clipboardReadWrite", "clipboardSanitizedWrite"],
-                    })
-                    result = await cdp.send("Runtime.evaluate", {
-                        "expression": "navigator.clipboard.readText()",
-                        "awaitPromise": True,
-                    })
-                    texto = result.get("result", {}).get("value", "")
-                except Exception as e:
-                    _log(f"CDP clipboard error: {e}")
-
-            if not texto or not texto.strip():
-                _log("CDP clipboard también vacío. Intentando via xsel...")
-                import subprocess
-                try:
-                    result = subprocess.run(
-                        ["xsel", "--clipboard", "--output"],
-                        capture_output=True, text=True, timeout=5,
-                        env={**os.environ, "DISPLAY": os.environ.get("DISPLAY", ":99")}
-                    )
-                    texto = result.stdout
-                except Exception as e:
-                    _log(f"xsel error: {e}")
-
-            if not texto or not texto.strip():
-                _log("Chrome OCR no pudo extraer texto del PDF (posible PDF imagen sin capa de texto)")
-                v["estado"] = "error"
-                v["mensaje"] = "Chrome no pudo extraer texto. El PDF parece ser una imagen sin capa de texto seleccionable."
-                return
-
-            _log(f"Texto extraído: {len(texto)} caracteres")
-            _log(f"Vista previa: {texto[:200]}...")
-
-            from extractor import extraer_nombre, extraer_dni, extraer_csv, extraer_fecha, extraer_no_consta
-            nombre = extraer_nombre(texto)
-            dni = extraer_dni(texto)
-
-            pie = ""
-            try:
-                import fitz
-                doc = fitz.open(ruta)
-                for pagina in doc:
-                    alto = pagina.height
-                    umbral_y = alto * 0.80
-                    bloques = pagina.get_text("dict", clip=fitz.Rect(0, umbral_y, pagina.rect.width, pagina.rect.height))
-                    for bloque in bloques.get("blocks", []):
-                        for linea in bloque.get("lines", []):
-                            for span in linea.get("spans", []):
-                                pie += span.get("text", "") + " "
-                doc.close()
-            except Exception:
-                pass
-
-            csv_val = extraer_csv(texto, pie)
-            fecha = extraer_fecha(texto, pie)
-            no_consta = extraer_no_consta(texto)
-
-            _log(f"Nombre: {nombre or '(no encontrado)'}")
-            _log(f"DNI: {dni or '(no encontrado)'}")
-            _log(f"CSV: {csv_val or '(no encontrado)'}")
-            _log(f"Fecha: {fecha or '(no encontrado)'}")
-            _log(f"NO CONSTA: {no_consta}")
-
-            v["datos_extraidos"] = {
-                "nombre": nombre, "dni": dni, "csv": csv_val,
-                "fecha_emision": fecha, "no_consta": no_consta,
-            }
-            v["estado"] = "completo"
-            _log("Extracción Chrome OCR completada")
+            v["mensaje"] = "PDF abierto en Google Chrome"
+            v["estado"] = "navegando"
 
         except Exception as e:
             _log(f"Error Chrome OCR: {e}")
@@ -790,6 +700,54 @@ async def tecla_en(request: Request, vid: str, data: dict = Body(...)):
         raise HTTPException(400, "Navegador no disponible")
     await v["verificador"].presionar_tecla(data["tecla"])
     return {"ok": True}
+
+
+@app.post("/api/verify/{vid}/chrome-key")
+async def chrome_key(request: Request, vid: str, data: dict = Body(...)):
+    if not await _require_auth(request):
+        raise HTTPException(401, "No autenticado")
+    v = verificaciones.get(vid)
+    if not v:
+        raise HTTPException(404, "Verificación no encontrada")
+    if not v.get("chrome_page"):
+        raise HTTPException(400, "Chrome OCR no está activo")
+    try:
+        await v["chrome_page"].keyboard.press(data["tecla"])
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(500, f"Error: {e}")
+
+
+@app.post("/api/verify/{vid}/chrome-click")
+async def chrome_click(request: Request, vid: str, data: dict = Body(...)):
+    if not await _require_auth(request):
+        raise HTTPException(401, "No autenticado")
+    v = verificaciones.get(vid)
+    if not v:
+        raise HTTPException(404, "Verificación no encontrada")
+    if not v.get("chrome_page"):
+        raise HTTPException(400, "Chrome OCR no está activo")
+    try:
+        await v["chrome_page"].mouse.click(data["x"], data["y"])
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(500, f"Error: {e}")
+
+
+@app.get("/api/verify/{vid}/chrome-clipboard")
+async def chrome_clipboard(request: Request, vid: str):
+    if not await _require_auth(request):
+        raise HTTPException(401, "No autenticado")
+    v = verificaciones.get(vid)
+    if not v:
+        raise HTTPException(404, "Verificación no encontrada")
+    if not v.get("chrome_page"):
+        raise HTTPException(400, "Chrome OCR no está activo")
+    try:
+        texto = await v["chrome_page"].evaluate("navigator.clipboard.readText()")
+        return {"ok": True, "texto": texto or ""}
+    except Exception as e:
+        return {"ok": False, "texto": "", "error": str(e)}
 
 
 @app.get("/api/verify/{vid}/result")
