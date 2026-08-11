@@ -19,7 +19,7 @@ from extractor import extraer_datos, extraer_datos_ocr
 from verificador_web import VerificadorWeb, _asegurar_display
 from comparador import comparar
 
-VERSION = "1.0.20"
+VERSION = "1.0.21"
 
 app = FastAPI(title="Verificador de Certificados")
 app.add_middleware(
@@ -647,7 +647,17 @@ async def click_en(request: Request, vid: str, data: dict = Body(...)):
     if not await _require_auth(request):
         raise HTTPException(401, "No autenticado")
     v = verificaciones.get(vid)
-    if not v or not v.get("verificador"):
+    if not v:
+        raise HTTPException(404, "Verificación no encontrada")
+
+    if v.get("chrome_page"):
+        try:
+            await v["chrome_page"].mouse.click(data["x"], data["y"])
+            return {"ok": True}
+        except Exception as e:
+            raise HTTPException(500, f"Error click Chrome: {e}")
+
+    if not v.get("verificador"):
         raise HTTPException(400, "Navegador no disponible")
     await v["verificador"].hacer_click(data["x"], data["y"])
     return {"ok": True}
@@ -658,7 +668,17 @@ async def escribir_en(request: Request, vid: str, data: dict = Body(...)):
     if not await _require_auth(request):
         raise HTTPException(401, "No autenticado")
     v = verificaciones.get(vid)
-    if not v or not v.get("verificador"):
+    if not v:
+        raise HTTPException(404, "Verificación no encontrada")
+
+    if v.get("chrome_page"):
+        try:
+            await v["chrome_page"].keyboard.type(data["texto"])
+            return {"ok": True}
+        except Exception as e:
+            raise HTTPException(500, f"Error typing Chrome: {e}")
+
+    if not v.get("verificador"):
         raise HTTPException(400, "Navegador no disponible")
     await v["verificador"].escribir(data["texto"])
     return {"ok": True}
@@ -669,7 +689,17 @@ async def tecla_en(request: Request, vid: str, data: dict = Body(...)):
     if not await _require_auth(request):
         raise HTTPException(401, "No autenticado")
     v = verificaciones.get(vid)
-    if not v or not v.get("verificador"):
+    if not v:
+        raise HTTPException(404, "Verificación no encontrada")
+
+    if v.get("chrome_page"):
+        try:
+            await v["chrome_page"].keyboard.press(data["tecla"])
+            return {"ok": True}
+        except Exception as e:
+            raise HTTPException(500, f"Error key Chrome: {e}")
+
+    if not v.get("verificador"):
         raise HTTPException(400, "Navegador no disponible")
     await v["verificador"].presionar_tecla(data["tecla"])
     return {"ok": True}
