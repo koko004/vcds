@@ -369,15 +369,16 @@ MESES = {
 
 
 def _extraer_csv_de_url(texto: str) -> str | None:
+    texto_limpio = re.sub(r'[^\x00-\x7F]', '', texto)
     m = re.search(
-        r'CSV=(?:5?[SDsd][:;]?)?([A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4})',
-        texto
+        r'CSV=(?:5?SD[sd]?[:;]?)?([A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4})',
+        texto_limpio
     )
     if m:
         return m.group(1)
     m = re.search(
-        r'CSV=5?[SDsd][:;]?\s*([A-Za-z0-9.\-]+)',
-        texto
+        r'CSV=5?SD[sd]?[:;]?\s*([A-Za-z0-9.\-]+)',
+        texto_limpio
     )
     if m:
         raw = m.group(1)
@@ -385,6 +386,13 @@ def _extraer_csv_de_url(texto: str) -> str | None:
         partes = [p for p in raw.split('-') if p]
         if len(partes) >= 4:
             return '-'.join(partes[:4])
+    m = re.search(
+        r'CSV=5?SD[sd]?[:;]?\s*([A-Za-z0-9]{3,6})-([A-Za-z0-9]{3,6})-([A-Za-z0-9]{3,6})-([A-Za-z0-9]{2,6})',
+        texto_limpio
+    )
+    if m:
+        partes = [p[:4].ljust(4, 'X') for p in m.groups()]
+        return '-'.join(partes)
     return None
 
 

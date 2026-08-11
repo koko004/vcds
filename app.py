@@ -19,7 +19,7 @@ from extractor import extraer_datos, extraer_datos_ocr
 from verificador_web import VerificadorWeb, _asegurar_display
 from comparador import comparar
 
-VERSION = "1.0.14"
+VERSION = "1.0.20"
 
 app = FastAPI(title="Verificador de Certificados")
 app.add_middleware(
@@ -451,117 +451,46 @@ async def chrome_ocr(request: Request, vid: str):
 
     async def tarea_chrome_ocr():
         from playwright.async_api import async_playwright
-        import platform
-        texto = ""
         pw = None
         try:
-            chromium_path = "/usr/bin/chromium"
-            if not os.path.exists(chromium_path):
-                chromium_path = "/usr/bin/chromium-browser"
-            if not os.path.exists(chromium_path):
-                import glob as g
-                candidates = g.glob("/root/.cache/ms-playwright/chromium-*/chrome-linux64/chrome")
-                chromium_path = candidates[0] if candidates else None
-            if not chromium_path or not os.path.exists(chromium_path):
-                _log("ERROR: No se encontro Chromium completo")
-                v["estado"] = "error"
-                v["mensaje"] = "Chromium completo no encontrado"
-                return
-            _log(f"Usando Chromium: {chromium_path}")
-
             _asegurar_display()
 
-            _log("Lanzando Chromium con permisos de portapapeles...")
+            _log("Lanzando Google Chrome (headed + Xvfb)...")
             pw = await async_playwright().start()
             browser = await pw.chromium.launch(
-                headless=True,
-                executable_path=chromium_path,
-                args=["--no-sandbox", "--disable-web-security"]
+                headless=False,
+                channel="chrome",
+                args=["--no-sandbox", "--disable-web-security", "--window-size=1280,1024"]
             )
             context = await browser.new_context(
-                permissions=["clipboard-read", "clipboard-write"]
+                permissions=["clipboard-read", "clipboard-write"],
+                viewport={"width": 1280, "height": 1024}
             )
             page = await context.new_page()
 
             file_url = f"file://{abs_path}"
-            _log(f"Abriendo PDF: {file_url}")
+            _log(f"Abriendo PDF en Google Chrome: {file_url}")
             await page.goto(file_url, timeout=30000)
-            await page.wait_for_timeout(3000)
+            await page.wait_for_timeout(5000)
 
-            _log("Clic en el visor para foco...")
-            await page.mouse.click(640, 450)
-            await page.wait_for_timeout(500)
+            _log("PDF abierto en Chrome. Guardando referencia del navegador...")
+            v["chrome_browser"] = browser
+            v["chrome_context"] = context
+            v["chrome_page"] = page
 
-            modifier = "Meta" if platform.system() == "Darwin" else "Control"
-            _log(f"{modifier}+A (seleccionar todo)...")
-            await page.keyboard.press(f"{modifier}+a")
-            await page.wait_for_timeout(500)
+            await page.screenshot(path=f"/tmp/chrome_ocr_{vid}.png")
+            _log("Screenshot del visor guardado")
 
-            _log(f"{modifier}+C (copiar)...")
-            await page.keyboard.press(f"{modifier}+c")
-            await page.wait_for_timeout(500)
+            v["mensaje"] = "PDF abierto en Google Chrome"
+            v["estado"] = "navegando"
 
-            _log("Leyendo portapapeles...")
-            texto = await page.evaluate("navigator.clipboard.readText()")
-
-            if not texto or not texto.strip():
-                _log("Chrome OCR no pudo extraer texto")
-                v["estado"] = "error"
-                v["mensaje"] = "Chrome OCR no pudo extraer texto"
-                return
-
-            _log(f"Texto extraído: {len(texto)} caracteres")
-            _log("Parseando campos...")
-            from extractor import extraer_nombre, extraer_dni, extraer_csv, extraer_fecha, extraer_no_consta
-            nombre = extraer_nombre(texto)
-            dni = extraer_dni(texto)
-            pie = ""
-            try:
-                import fitz
-                doc = fitz.open(ruta)
-                for pagina in doc:
-                    alto = pagina.height
-                    umbral_y = alto * 0.80
-                    bloques = pagina.get_text("dict", clip=fitz.Rect(0, umbral_y, pagina.rect.width, pagina.rect.height))
-                    for bloque in bloques.get("blocks", []):
-                        for linea in bloque.get("lines", []):
-                            for span in linea.get("spans", []):
-                                pie += span.get("text", "") + " "
-                doc.close()
-            except Exception:
-                pass
-            csv_val = extraer_csv(texto, pie)
-            fecha = extraer_fecha(texto, pie)
-            no_consta = extraer_no_consta(texto)
-            _log(f"Nombre: {nombre or '(no encontrado)'}")
-            _log(f"DNI: {dni or '(no encontrado)'}")
-            _log(f"CSV: {csv_val or '(no encontrado)'}")
-            _log(f"Fecha: {fecha or '(no encontrado)'}")
-            _log(f"NO CONSTA: {no_consta}")
-            v["datos_extraidos"] = {
-                "nombre": nombre, "dni": dni, "csv": csv_val,
-                "fecha_emision": fecha, "no_consta": no_consta,
-            }
-            v["estado"] = "completo"
         except Exception as e:
             _log(f"Error Chrome OCR: {e}")
             v["estado"] = "error"
             v["mensaje"] = str(e)
-        finally:
-            try:
-                if 'browser' in dir() and browser:
-                    await browser.close()
-            except Exception:
-                pass
-            try:
-                if pw:
-                    await pw.stop()
-            except Exception:
-                pass
-            v["verificador"] = None
 
     asyncio.create_task(tarea_chrome_ocr())
-    return {"ok": True, "mensaje": "Chrome OCR iniciado"}
+    return {"ok": True, "mensaje": "Google Chrome abierto con el PDF"}
 
 
 @app.post("/api/abrir-ministerio/{vid}")
@@ -695,6 +624,16 @@ async def capturar(request: Request, vid: str):
     v = verificaciones.get(vid)
     if not v:
         raise HTTPException(404, "Verificación no encontrada")
+
+    if v.get("chrome_page"):
+        try:
+            import base64
+            screenshot = await v["chrome_page"].screenshot()
+            img_b64 = base64.b64encode(screenshot).decode()
+            return {"imagen": f"data:image/png;base64,{img_b64}"}
+        except Exception:
+            return {"imagen": None}
+
     if not v.get("verificador"):
         return {"imagen": None}
     img = await v["verificador"].capturar_pantalla()
