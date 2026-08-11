@@ -19,7 +19,7 @@ from extractor import extraer_datos, extraer_datos_ocr
 from verificador_web import VerificadorWeb, _asegurar_display
 from comparador import comparar
 
-VERSION = "1.0.23"
+VERSION = "1.0.24"
 
 app = FastAPI(title="Verificador de Certificados")
 app.add_middleware(
@@ -743,9 +743,51 @@ async def chrome_clipboard(request: Request, vid: str):
         raise HTTPException(404, "Verificación no encontrada")
     if not v.get("chrome_page"):
         raise HTTPException(400, "Chrome OCR no está activo")
+    page = v["chrome_page"]
     try:
-        texto = await v["chrome_page"].evaluate("navigator.clipboard.readText()")
-        return {"ok": True, "texto": texto or ""}
+        # 1) Intentar leer la selección del DOM (PDF viewer text layer)
+        texto = await page.evaluate("""() => {
+            const sel = window.getSelection();
+            if (sel && sel.toString().trim()) return sel.toString();
+            // Buscar en los spans del text layer del PDF viewer
+            const spans = document.querySelectorAll('#viewer .page .textLayer span, #viewer span, .page span');
+            let all = '';
+            for (const s of spans) all += s.textContent + ' ';
+            return all.trim();
+        }""")
+        if texto and texto.strip():
+            return {"ok": True, "texto": texto.strip()}
+
+        # 2) Intentar leer del portapapeles del sistema via CDP
+        try:
+            cdp = await v["chrome_context"].new_cdp_session(page)
+            await cdp.send("Browser.grantPermissions", {
+                "permissions": ["clipboardReadWrite", "clipboardSanitizedWrite"],
+            })
+            result = await cdp.send("Runtime.evaluate", {
+                "expression": "navigator.clipboard.readText()",
+                "awaitPromise": True,
+            })
+            texto = result.get("result", {}).get("value", "")
+            if texto and texto.strip():
+                return {"ok": True, "texto": texto.strip()}
+        except Exception:
+            pass
+
+        # 3) Intentar via xsel del portapapeles del sistema
+        import subprocess
+        try:
+            result = subprocess.run(
+                ["xsel", "--clipboard", "--output"],
+                capture_output=True, text=True, timeout=5,
+                env={**os.environ, "DISPLAY": os.environ.get("DISPLAY", ":99")}
+            )
+            if result.stdout.strip():
+                return {"ok": True, "texto": result.stdout.strip()}
+        except Exception:
+            pass
+
+        return {"ok": False, "texto": "", "error": "No se pudo leer el portapapeles ni la selección del DOM"}
     except Exception as e:
         return {"ok": False, "texto": "", "error": str(e)}
 
