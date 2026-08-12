@@ -19,7 +19,7 @@ from extractor import extraer_datos, extraer_datos_ocr
 from verificador_web import VerificadorWeb, _asegurar_display
 from comparador import comparar
 
-VERSION = "1.0.25"
+VERSION = "1.0.26"
 
 app = FastAPI(title="Verificador de Certificados")
 app.add_middleware(

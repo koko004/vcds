@@ -396,6 +396,71 @@ def _extraer_csv_de_url(texto: str) -> str | None:
     return None
 
 
+def extraer_csv_de_pdf_directo(pdf_path: str, log_fn: Callable | None = None) -> str | None:
+    """
+    Método PRINCIPAL para extraer el CSV directamente de enlaces/URLs del PDF.
+    Busca la URL del Ministerio de Justicia (sedecsvbroker / FormularioVerificacion) en:
+    1. Anotaciones/Enlaces interactivos del PDF (PyMuPDF page.get_links())
+    2. Estructura y flujos de bytes raw del archivo PDF
+    Returns "SD:XXXX-XXXX-XXXX-XXXX" si se encuentra, o None si falla.
+    """
+    if not pdf_path or not os.path.exists(pdf_path):
+        return None
+
+    _log(log_fn, "Buscando enlace/URL del Ministerio de Justicia con CSV en el PDF...")
+
+    # 1. Buscar en anotaciones/enlaces del PDF via PyMuPDF (fitz)
+    try:
+        doc = fitz.open(pdf_path)
+        for page in doc:
+            for link in page.get_links():
+                uri = link.get("uri", "") or link.get("url", "")
+                if uri and ("CSV=" in uri or "sedecsvbroker" in uri or "FormularioVerificacion" in uri):
+                    _log(log_fn, f"Enlace interactivo encontrado en el PDF: {uri}")
+                    csv_raw = _extraer_csv_de_url(uri)
+                    if csv_raw:
+                        csv_final = _sanitizar_csv(csv_raw)
+                        if len(csv_final.replace('-', '')) >= 12:
+                            return f"SD:{csv_final}"
+        doc.close()
+    except Exception as e:
+        _log(log_fn, f"Error buscando enlaces en PDF: {e}")
+
+    # 2. Buscar URLs completas del Ministerio en la estructura de bytes del PDF
+    try:
+        with open(pdf_path, "rb") as f:
+            raw_bytes = f.read().decode("latin-1", errors="ignore")
+
+        # Buscar patron de URL del Ministerio: https://...sedecsvbroker...CSV=...
+        matches = re.findall(
+            r'https?://[^\s\)\"<>]+(?:sedecsvbroker|FormularioVerificacion)[^\s\)\"<>]*CSV=[^\s\)\"<>]+',
+            raw_bytes,
+            re.IGNORECASE
+        )
+        for url in matches:
+            _log(log_fn, f"URL del Ministerio encontrada en los bytes del PDF: {url}")
+            csv_raw = _extraer_csv_de_url(url)
+            if csv_raw:
+                csv_final = _sanitizar_csv(csv_raw)
+                if len(csv_final.replace('-', '')) >= 12:
+                    return f"SD:{csv_final}"
+
+        # Buscar patron CSV genérico en la estructura de datos
+        matches_csv = re.findall(r'CSV=(?:5?SD[sd]?[:;]?)?([A-Za-z0-9\.\-]{12,30})', raw_bytes, re.IGNORECASE)
+        for raw_match in matches_csv:
+            csv_raw = _extraer_csv_de_url(f"CSV={raw_match}")
+            if csv_raw:
+                csv_final = _sanitizar_csv(csv_raw)
+                if len(csv_final.replace('-', '')) >= 12:
+                    _log(log_fn, f"CSV encontrado en metadatos del PDF: SD:{csv_final}")
+                    return f"SD:{csv_final}"
+    except Exception as e:
+        _log(log_fn, f"Error buscando URLs en bytes del PDF: {e}")
+
+    _log(log_fn, "No se encontró enlace/URL con CSV directo en el PDF.")
+    return None
+
+
 def _extraer_csv_de_bloque(texto: str) -> str | None:
     m = re.search(
         r'(?:Código Seguro de\s*Verificación|Verificación)\s*\|?\s*(?:SD:)?([A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4})',
@@ -456,7 +521,13 @@ def _corregir_csv_ocr(csv_raw: str) -> str:
     return '-'.join(corregidas)
 
 
-def extraer_csv(texto: str, pie: str = "") -> str | None:
+def extraer_csv(texto: str, pie: str = "", pdf_path: str = None) -> str | None:
+    # 1. METODO PRINCIPAL: intentar extraer el CSV directamente desde los enlaces/URLs del PDF
+    if pdf_path:
+        csv_directo = extraer_csv_de_pdf_directo(pdf_path)
+        if csv_directo:
+            return csv_directo
+
     busqueda = pie + "\n" + texto
 
     csv_raw = _extraer_csv_de_url(busqueda)
@@ -526,12 +597,22 @@ def extraer_no_consta(texto: str) -> bool:
 
 def extraer_datos(pdf_path: str, log_fn: Callable | None = None) -> dict:
     _log(log_fn, "Starting PDF data extraction")
+
+    # 1. METODO PRINCIPAL: Extraer CSV directamente de enlaces/URLs del PDF
+    csv_val = extraer_csv_de_pdf_directo(pdf_path, log_fn)
+    if csv_val:
+        _log(log_fn, f"CSV extraído prioritariamente desde enlace/URL del PDF: {csv_val}")
+
     texto = extraer_texto(pdf_path, log_fn)
     pie = extraer_pie(pdf_path, log_fn, texto_ya_extraido=texto)
     _log(log_fn, "Parsing fields: name, DNI, CSV, date, NO CONSTA")
     nombre = extraer_nombre(texto)
     dni = extraer_dni(texto)
-    csv_val = extraer_csv(texto, pie)
+
+    # Si no se encontró en la estructura/enlaces del PDF, usar fallback de texto/OCR
+    if not csv_val:
+        csv_val = extraer_csv(texto, pie, pdf_path=pdf_path)
+
     fecha = extraer_fecha(texto, pie)
     no_consta = extraer_no_consta(texto)
     _log(log_fn, f"Name: {nombre or '(not found)'}")
@@ -552,13 +633,19 @@ def extraer_datos(pdf_path: str, log_fn: Callable | None = None) -> dict:
 
 def extraer_datos_ocr(pdf_path: str, log_fn: Callable | None = None) -> dict:
     _log(log_fn, "Starting OCR-based extraction (Playwright screenshot + Tesseract)")
+
+    # 1. METODO PRINCIPAL: Extraer CSV directamente de enlaces/URLs del PDF
+    csv_val = extraer_csv_de_pdf_directo(pdf_path, log_fn)
+    if csv_val:
+        _log(log_fn, f"CSV extraído prioritariamente desde enlace/URL del PDF: {csv_val}")
+
     texto = _extraer_con_screenshot_ocr(pdf_path, log_fn)
     if not texto.strip():
         _log(log_fn, "Screenshot OCR returned no text")
         return {
             "nombre": None,
             "dni": None,
-            "csv": None,
+            "csv": csv_val,
             "fecha_emision": None,
             "no_consta": False,
             "texto_completo": "",
@@ -570,7 +657,11 @@ def extraer_datos_ocr(pdf_path: str, log_fn: Callable | None = None) -> dict:
     _log(log_fn, "Parsing fields from OCR text")
     nombre = extraer_nombre(texto)
     dni = extraer_dni(texto)
-    csv_val = extraer_csv(texto, pie)
+
+    # Si no se encontró en la estructura/enlaces del PDF, usar fallback de OCR
+    if not csv_val:
+        csv_val = extraer_csv(texto, pie, pdf_path=pdf_path)
+
     fecha = extraer_fecha(texto, pie)
     no_consta = extraer_no_consta(texto)
     _log(log_fn, f"OCR Name: {nombre or '(not found)'}")
