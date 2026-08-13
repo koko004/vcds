@@ -266,9 +266,17 @@ def _ocr_pagina(pagina, log_fn: Callable | None = None) -> str:
     return texto_bin
 
 
+def _ocr_pagina_psm3(pagina, log_fn: Callable | None = None) -> str:
+    _log(log_fn, "Rendering page to image at 300 DPI (PSM3, para pie/URL)")
+    pix = pagina.get_pixmap(dpi=300)
+    img = Image.open(io.BytesIO(pix.tobytes("png")))
+    gray = img.convert("L")
+    return pytesseract.image_to_string(gray, lang="spa", config="--psm 3 --oem 1")
+
+
 def _ocr_csv_bottom_region(pagina, log_fn: Callable | None = None) -> str | None:
     pw, ph = pagina.rect.width, pagina.rect.height
-    region = fitz.Rect(0, ph * 0.75, pw, ph)
+    region = fitz.Rect(0, ph * 0.68, pw, ph)
     pix = pagina.get_pixmap(matrix=fitz.Matrix(400/72, 400/72), clip=region)
     img = Image.open(io.BytesIO(pix.tobytes("png")))
     gray = img.convert("L")
@@ -282,6 +290,7 @@ def _extraer_con_ocr(pdf_path: str, log_fn: Callable | None = None) -> str:
     doc = fitz.open(pdf_path)
     for pagina in doc:
         texto += _ocr_pagina(pagina, log_fn) + "\n"
+        texto += _ocr_pagina_psm3(pagina, log_fn) + "\n"
     if not re.search(r'SD[:\-]', texto):
         _log(log_fn, "CSV not found in full OCR — trying bottom region...")
         for pagina in doc:
@@ -369,13 +378,41 @@ MESES = {
 
 
 def _extraer_csv_de_url(texto: str) -> str | None:
+    """Extrae el CSV preferentemente de la línea URL del Ministerio (sedecsvbroker),
+    tolerando errores OCR típicos de Tesseract (CS5V=, 5D:, acción, etc.)."""
     texto_limpio = re.sub(r'[^\x00-\x7F]', '', texto)
+
+    # 1) Prioridad: CSV dentro de una línea que contenga la URL del Ministerio
+    url_lines = [
+        l for l in texto_limpio.split('\n')
+        if any(k in l.lower() for k in ['mjusticia', 'sedecsvbroker', 'formulario', 'broker', 'verifica'])
+    ]
+    for linea in url_lines:
+        m = re.search(
+            r'[CSW5][S5]?[VW]?\s*[=:\s]\s*[5S][dDoO0]?\s*[:;\t]?\s*([A-Za-z0-9]{3,6})[-=]([A-Za-z0-9]{3,6})[-=]([A-Za-z0-9]{3,6})[-=]([A-Za-z0-9]{3,6})',
+            linea,
+            re.IGNORECASE
+        )
+        if m:
+            return f'{m.group(1)[:4]}-{m.group(2)[:4]}-{m.group(3)[:4]}-{m.group(4)[:4]}'
+
+    # 2) CSV genérico que empiece por SD:
     m = re.search(
-        r'CSV=(?:5?SD[sd]?[:;]?)?([A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4})',
+        r'\b[5S][dDoO0][:;\s]\s*([A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4})',
         texto_limpio
     )
     if m:
         return m.group(1)
+
+    # 3) CSV=[...] 4 bloques separados por guion
+    m = re.search(
+        r'CS[VW5]?=[^A-Za-z0-9]*([A-Za-z0-9]{4})-([A-Za-z0-9]{4})-([A-Za-z0-9]{4})-([A-Za-z0-9]{4})',
+        texto_limpio,
+        re.IGNORECASE
+    )
+    if m:
+        return '-'.join(m.groups())
+
     m = re.search(
         r'CSV=5?SD[sd]?[:;]?\s*([A-Za-z0-9.\-]+)',
         texto_limpio
@@ -386,13 +423,6 @@ def _extraer_csv_de_url(texto: str) -> str | None:
         partes = [p for p in raw.split('-') if p]
         if len(partes) >= 4:
             return '-'.join(partes[:4])
-    m = re.search(
-        r'CSV=5?SD[sd]?[:;]?\s*([A-Za-z0-9]{3,6})-([A-Za-z0-9]{3,6})-([A-Za-z0-9]{3,6})-([A-Za-z0-9]{2,6})',
-        texto_limpio
-    )
-    if m:
-        partes = [p[:4].ljust(4, 'X') for p in m.groups()]
-        return '-'.join(partes)
     return None
 
 
