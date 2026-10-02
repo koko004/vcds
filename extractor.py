@@ -209,6 +209,27 @@ def _extraer_con_playwright(pdf_path: str, log_fn: Callable | None = None) -> st
     return texto
 
 
+def _pixmap_seguro(pagina, dpi=300, log_fn: Callable | None = None):
+    """Renderiza la página degradando DPI si PIL rechaza la imagen por tamaño (DecompressionBomb)."""
+    from PIL import Image as _Image
+    actual = dpi
+    while actual >= 72:
+        try:
+            pix = pagina.get_pixmap(dpi=actual)
+            img = _Image.open(io.BytesIO(pix.tobytes("png")))
+            img.load()
+            if actual != dpi:
+                _log(log_fn, f"DPI reducido a {actual} (página grande)")
+            return img
+        except Exception as e:
+            if "DecompressionBomb" in type(e).__name__ or actual <= 72:
+                if actual <= 72:
+                    raise
+            _log(log_fn, f"DPI {actual} excede límite PIL, probando {actual // 2}")
+            actual //= 2
+    raise RuntimeError("No se pudo renderizar la página ni a 72 DPI")
+
+
 def _extraer_con_screenshot_ocr(pdf_path: str, log_fn: Callable | None = None) -> str:
     _log(log_fn, "Starting PyMuPDF render + Tesseract OCR extraction")
     texto = ""
@@ -221,13 +242,7 @@ def _extraer_con_screenshot_ocr(pdf_path: str, log_fn: Callable | None = None) -
         for i in range(num_pages):
             _log(log_fn, f"Processing page {i+1}/{num_pages}")
             pagina = doc[i]
-            pix = pagina.get_pixmap(dpi=300)
-
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-                tmp_path = tmp.name
-            pix.save(tmp_path)
-
-            img = Image.open(tmp_path)
+            img = _pixmap_seguro(pagina, dpi=300, log_fn=log_fn)
             gray = img.convert("L")
             config = "--psm 4 --oem 1"
 
@@ -240,7 +255,6 @@ def _extraer_con_screenshot_ocr(pdf_path: str, log_fn: Callable | None = None) -
             pagina_texto = texto_raw if len(texto_raw.strip()) > len(texto_bin.strip()) else texto_bin
             texto += pagina_texto + "\n"
             _log(log_fn, f"Page {i+1}: extracted {len(pagina_texto)} chars via OCR")
-            os.remove(tmp_path)
 
         doc.close()
         _log(log_fn, f"OCR extraction complete: {len(texto)} total chars")
@@ -251,8 +265,7 @@ def _extraer_con_screenshot_ocr(pdf_path: str, log_fn: Callable | None = None) -
 
 def _ocr_pagina(pagina, log_fn: Callable | None = None) -> str:
     _log(log_fn, "Rendering page to image at 400 DPI")
-    pix = pagina.get_pixmap(dpi=400)
-    img = Image.open(io.BytesIO(pix.tobytes("png")))
+    img = _pixmap_seguro(pagina, dpi=400, log_fn=log_fn)
     gray = img.convert("L")
     config = "--psm 4 --oem 1"
 
@@ -268,8 +281,7 @@ def _ocr_pagina(pagina, log_fn: Callable | None = None) -> str:
 
 def _ocr_pagina_psm3(pagina, log_fn: Callable | None = None) -> str:
     _log(log_fn, "Rendering page to image at 300 DPI (PSM3, para pie/URL)")
-    pix = pagina.get_pixmap(dpi=300)
-    img = Image.open(io.BytesIO(pix.tobytes("png")))
+    img = _pixmap_seguro(pagina, dpi=300, log_fn=log_fn)
     gray = img.convert("L")
     return pytesseract.image_to_string(gray, lang="spa", config="--psm 3 --oem 1")
 
@@ -277,8 +289,19 @@ def _ocr_pagina_psm3(pagina, log_fn: Callable | None = None) -> str:
 def _ocr_csv_bottom_region(pagina, log_fn: Callable | None = None) -> str | None:
     pw, ph = pagina.rect.width, pagina.rect.height
     region = fitz.Rect(0, ph * 0.68, pw, ph)
-    pix = pagina.get_pixmap(matrix=fitz.Matrix(400/72, 400/72), clip=region)
-    img = Image.open(io.BytesIO(pix.tobytes("png")))
+    matrix = fitz.Matrix(400/72, 400/72)
+    try:
+        pix = pagina.get_pixmap(matrix=matrix, clip=region)
+        from PIL import Image as _Image
+        img = _Image.open(io.BytesIO(pix.tobytes("png")))
+        img.load()
+    except Exception:
+        _log(log_fn, "Bottom region 400 DPI excede límite, usando 200 DPI")
+        matrix = fitz.Matrix(200/72, 200/72)
+        pix = pagina.get_pixmap(matrix=matrix, clip=region)
+        from PIL import Image as _Image
+        img = _Image.open(io.BytesIO(pix.tobytes("png")))
+        img.load()
     gray = img.convert("L")
     _log(log_fn, "OCR on bottom region (grayscale) for CSV...")
     return pytesseract.image_to_string(gray, lang="spa", config="--psm 4 --oem 1")
@@ -288,13 +311,22 @@ def _extraer_con_ocr(pdf_path: str, log_fn: Callable | None = None) -> str:
     _log(log_fn, "No selectable text found — falling back to OCR")
     texto = ""
     doc = fitz.open(pdf_path)
-    for pagina in doc:
-        texto += _ocr_pagina(pagina, log_fn) + "\n"
-        texto += _ocr_pagina_psm3(pagina, log_fn) + "\n"
+    npag = len(doc)
+    for idx, pagina in enumerate(doc):
+        try:
+            _log(log_fn, f"OCR página {idx + 1}/{npag}...")
+            texto += _ocr_pagina(pagina, log_fn) + "\n"
+            texto += _ocr_pagina_psm3(pagina, log_fn) + "\n"
+        except Exception as e:
+            _log(log_fn, f"OCR página {idx + 1} falló ({e}), continuando...")
     if not re.search(r'SD[:\-]', texto):
         _log(log_fn, "CSV not found in full OCR — trying bottom region...")
         for pagina in doc:
-            texto_bottom = _ocr_csv_bottom_region(pagina, log_fn)
+            try:
+                texto_bottom = _ocr_csv_bottom_region(pagina, log_fn)
+            except Exception as e:
+                _log(log_fn, f"OCR región inferior falló ({e})")
+                continue
             if texto_bottom:
                 texto += "\n" + texto_bottom
     doc.close()
@@ -450,7 +482,7 @@ def extraer_csv_de_pdf_directo(pdf_path: str, log_fn: Callable | None = None) ->
                     csv_raw = _extraer_csv_de_url(uri)
                     if csv_raw:
                         csv_final = _sanitizar_csv(csv_raw)
-                        if len(csv_final.replace('-', '')) >= 12:
+                        if csv_con_formato_valido(f"SD:{csv_final}"):
                             return f"SD:{csv_final}"
         doc.close()
     except Exception as e:
@@ -472,7 +504,7 @@ def extraer_csv_de_pdf_directo(pdf_path: str, log_fn: Callable | None = None) ->
             csv_raw = _extraer_csv_de_url(url)
             if csv_raw:
                 csv_final = _sanitizar_csv(csv_raw)
-                if len(csv_final.replace('-', '')) >= 12:
+                if csv_con_formato_valido(f"SD:{csv_final}"):
                     return f"SD:{csv_final}"
 
         # Buscar patron CSV genérico en la estructura de datos
@@ -481,7 +513,7 @@ def extraer_csv_de_pdf_directo(pdf_path: str, log_fn: Callable | None = None) ->
             csv_raw = _extraer_csv_de_url(f"CSV={raw_match}")
             if csv_raw:
                 csv_final = _sanitizar_csv(csv_raw)
-                if len(csv_final.replace('-', '')) >= 12:
+                if csv_con_formato_valido(f"SD:{csv_final}"):
                     _log(log_fn, f"CSV encontrado en metadatos del PDF: SD:{csv_final}")
                     return f"SD:{csv_final}"
     except Exception as e:
@@ -529,11 +561,29 @@ def _sanitizar_csv(csv_limpio: str) -> str:
     for parte in partes:
         p = parte
         p = re.sub(r'(?<=\d)B(?=\d)', '6', p)
-        p = re.sub(r'(?<=[a-z])B(?=[a-z0-9])', '', p)
-        p = re.sub(r'(?<=[a-z0-9])B(?=[a-z])', '', p)
+        p = p.replace('Pa', 'Fa')
+        p = p.replace('58', '5B')
+        p = re.sub(r'(\d)8(\d)', r'\1B\2', p)
+        p = p.replace('.0', '')
+        # NOTA: jamás borrar caracteres (las reglas B->'' destruían
+        # bloques válidos como "m3Bi" -> "m3i"). Solo truncar a 4;
+        # la validación estricta 4x4 descarta lo que no cumpla.
         p = p[:4]
         partes_corregidas.append(p)
     return '-'.join(partes_corregidas)
+
+
+PATRON_CSV_ESTRICTO = re.compile(
+    r'^SD:([A-Za-z0-9]{4})-([A-Za-z0-9]{4})-([A-Za-z0-9]{4})-([A-Za-z0-9]{4})$'
+)
+
+
+def csv_con_formato_valido(csv: str | None) -> bool:
+    """Norma del Ministerio: SD: + 4 bloques de EXACTAMENTE 4 caracteres.
+    Un bloque de 3 (o 5) nunca es un CSV válido: es error de OCR."""
+    if not csv or not isinstance(csv, str):
+        return False
+    return bool(PATRON_CSV_ESTRICTO.match(csv.strip()))
 
 
 def _corregir_csv_ocr(csv_raw: str) -> str:
@@ -545,46 +595,51 @@ def _corregir_csv_ocr(csv_raw: str) -> str:
         p = p.replace('58', '5B')
         p = re.sub(r'(\d)8(\d)', r'\1B\2', p)
         p = p.replace('.0', '')
-        if len(p) < 4:
-            p = p.ljust(4, 'c')
         corregidas.append(p[:4])
     return '-'.join(corregidas)
 
 
-def extraer_csv(texto: str, pie: str = "", pdf_path: str = None) -> str | None:
+def extraer_csv(texto: str, pie: str = "", pdf_path: str = None, log_fn: Callable | None = None) -> str | None:
     # 1. METODO PRINCIPAL: intentar extraer el CSV directamente desde los enlaces/URLs del PDF
     if pdf_path:
         csv_directo = extraer_csv_de_pdf_directo(pdf_path)
-        if csv_directo:
+        if csv_directo and csv_con_formato_valido(csv_directo):
             return csv_directo
 
     busqueda = pie + "\n" + texto
 
-    csv_raw = _extraer_csv_de_url(busqueda)
-    if not csv_raw:
-        csv_raw = _extraer_csv_de_bloque(pie)
-    if not csv_raw:
-        csv_raw = _extraer_csv_de_bloque(texto)
-    if not csv_raw:
-        csv_raw = _extraer_csv_generico(busqueda)
-    if not csv_raw:
-        csv_raw = _extraer_csv_ocr(busqueda)
-        if csv_raw:
-            csv_raw = _corregir_csv_ocr(csv_raw)
-    if not csv_raw:
-        return None
+    raws = [
+        _extraer_csv_de_url(busqueda),
+        _extraer_csv_de_bloque(pie),
+        _extraer_csv_de_bloque(texto),
+        _extraer_csv_generico(busqueda),
+    ]
+    ocr_raw = _extraer_csv_ocr(busqueda)
+    if ocr_raw:
+        raws.append(_corregir_csv_ocr(ocr_raw))
 
-    csv_final = _sanitizar_csv(csv_raw)
+    for raw in raws:
+        if not raw:
+            continue
+        cand = f"SD:{_sanitizar_csv(raw)}"
+        if csv_con_formato_valido(cand):
+            return cand
 
-    if len(csv_final.replace('-', '')) >= 12:
-        return f"SD:{csv_final}"
+    vistos = [r for r in raws if r]
+    if vistos:
+        _log(log_fn, f"CSV descartado por formato inválido (norma: SD: + 4 bloques de 4): {vistos[0]}")
     return None
 
 
 def extraer_nombre(texto: str) -> str | None:
     m = PATRON_NOMBRE.search(texto)
     if m:
-        return re.sub(r'\s+', ' ', m.group(1)).strip().title()
+        nombre = re.sub(r'\s+', ' ', m.group(1)).strip()
+        # Los nombres españoles nunca contienen estos caracteres: son
+        # artefactos de OCR (¿?) o de markdown de la IA (**negrita**)
+        nombre = re.sub(r'[*_~#?¿!¡"\'`^$%@|/\\=+\[\]{}()]', '', nombre)
+        nombre = re.sub(r'\s+', ' ', nombre).strip()
+        return nombre.title() if nombre else None
     return None
 
 

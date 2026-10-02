@@ -41,7 +41,7 @@ COPY . .
 RUN mkdir -p uploads originales chrome_profile extension
 
 # Expose
-EXPOSE 8000
+EXPOSE 4776
 
 # Start with Xvfb for Playwright
 CMD ["python3", "start_app.py"]

@@ -3,12 +3,10 @@ services:
     image: koko004/vcds:latest
     container_name: vcds
     ports:
-      - "8000:8000"
+      - "4776:4776"
     volumes:
       - vcds_data:/app/uploads
       - vcds_originales:/app/originales
-      - vcds_config:/app/config.json
-      - vcds_auth:/app/auth.json
     restart: unless-stopped
     environment:
       - DISPLAY=:99
@@ -18,11 +16,9 @@ services:
     container_name: watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 3600 vcds
+    command: --interval 3600 --cleanup vcds
     restart: unless-stopped
 
 volumes:
   vcds_data:
   vcds_originales:
-  vcds_config:
-  vcds_auth:

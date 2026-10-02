@@ -8,31 +8,62 @@
 <title>VCDS - Iniciar Sesión</title>
 <link rel="stylesheet" href="/static/style.css">
 <style>
-.login-wrapper { display:flex; justify-content:center; align-items:center; min-height:80vh; }
-.login-card { background:#fff; border-radius:16px; padding:2.5rem; width:100%; max-width:400px; box-shadow:0 4px 24px rgba(0,0,0,0.1); }
-.login-card h1 { font-size:1.5rem; text-align:center; margin-bottom:0.5rem; color:#1a1a2e; }
-.login-card .login-subtitle { text-align:center; color:#666; font-size:0.9rem; margin-bottom:1.5rem; }
+:root {
+  --bg: #080a08;
+  --bg-card: #0e110e;
+  --bg-input: #141814;
+  --bg-hover: #171b16;
+  --text: #f4f5f2;
+  --text-sub: #b6bbb0;
+  --text-muted: #7f867a;
+  --border: rgba(255,255,255,0.12);
+  --accent: #d7ff3f;
+  --accent-ink: #0c0f02;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+body {
+  background: var(--bg);
+  background-image: radial-gradient(rgba(215,255,63,0.05) 1px, transparent 1px);
+  background-size: 22px 22px;
+  color: var(--text);
+}
+::selection { background: var(--accent); color: var(--accent-ink); }
+.login-card { background: var(--bg-card); border: 1px solid var(--border); box-shadow: 0 12px 48px rgba(0,0,0,0.55); }
+.login-card h1 { color: var(--text); font-family: var(--font-mono); letter-spacing: 0.1em; display: flex; align-items: center; justify-content: center; gap: 0.6rem; }
+.login-card h1::before { content: ""; width: 10px; height: 10px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 14px var(--accent); }
+.login-card .login-subtitle { color: var(--text-sub); font-family: var(--font-mono); font-size: 0.78rem; }
+.form-group label { color: var(--text-muted); font-family: var(--font-mono); }
+.form-group input { background: var(--bg-input); color: var(--text); border-color: var(--border); font-family: var(--font-mono); font-size: 0.9rem; }
+.form-group input:focus { background: var(--bg-hover); outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(215,255,63,0.15); }
+.form-group input::placeholder { color: var(--text-muted); }
+.login-wrapper p { color: var(--text-muted); }
+.login-wrapper { display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:80vh; }
+.login-card { border-radius:16px; padding:2.5rem; width:100%; max-width:400px; box-shadow:0 4px 24px rgba(0,0,0,0.1); }
+.login-card h1 { font-size:1.5rem; text-align:center; margin-bottom:0.5rem; display:block; justify-content:unset; }
+.login-card .login-subtitle { text-align:center; font-size:0.9rem; margin-bottom:1.5rem; }
 .login-card .logo-center { text-align:center; margin-bottom:1.5rem; }
 .login-card .logo-center img { height:80px; width:auto; }
 .form-group { margin-bottom:1rem; }
-.form-group label { display:block; font-size:0.8rem; color:#888; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:0.35rem; }
-.form-group input { width:100%; padding:0.7rem 1rem; border:1.5px solid #d1d5db; border-radius:8px; font-size:1rem; font-family:inherit; background:#fafafa; transition:border-color 0.2s, box-shadow 0.2s; box-sizing:border-box; }
-.form-group input:focus { outline:none; border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,0.15); background:#fff; }
-.login-btn { width:100%; padding:0.8rem; border:none; border-radius:8px; background:#2563eb; color:#fff; font-size:1rem; font-weight:600; cursor:pointer; transition:background 0.2s; }
-.login-btn:hover { background:#1d4ed8; }
-.login-btn:disabled { background:#93c5fd; cursor:not-allowed; }
-.login-error { background:#fee2e2; color:#991b1b; padding:0.6rem 1rem; border-radius:8px; font-size:0.85rem; margin-bottom:1rem; display:none; }
+.form-group label { display:block; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:0.35rem; }
+.form-group input { width:100%; padding:0.7rem 1rem; border:1.5px solid; border-radius:8px; font-size:1rem; font-family:inherit; transition:border-color 0.2s, box-shadow 0.2s; box-sizing:border-box; }
+.form-group input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(215,255,63,0.15); }
+.login-btn { width:100%; padding:0.8rem; border:1px solid var(--accent); border-radius:8px; background:var(--accent); color:var(--accent-ink); font-size:0.9rem; font-weight:700; font-family:var(--font-mono); letter-spacing:0.06em; cursor:pointer; transition:all 0.2s; box-shadow:0 0 20px rgba(215,255,63,0.25); }
+.login-btn:hover { filter:brightness(1.08); box-shadow:0 0 28px rgba(215,255,63,0.4); }
+.login-btn:disabled { background:#3a403a; border-color:var(--border); color:var(--text-muted); cursor:not-allowed; box-shadow:none; }
+.login-error { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.35); color:#f87171; padding:0.6rem 1rem; border-radius:8px; font-size:0.85rem; font-family:var(--font-mono); margin-bottom:1rem; display:none; }
 .login-error.show { display:block; }
+#loginVersion { font-family: var(--font-mono); }
+#loginVersion::before { content: "> "; color: var(--accent); }
 </style>
 </head>
 <body>
 <div class="login-wrapper">
   <div class="login-card">
     <div class="logo-center">
-      <img src="/static/logo.png" alt="Logo VCDS">
+      <img src="/static/logo.png?v=1.1.0" alt="Logo VCDS">
     </div>
-    <h1>VCDS</h1>
-    <p class="login-subtitle">Verificador de Certificados de Delitos Sexuales</p>
+    <h1 style="text-align:center">VCDS</h1>
+    <p class="login-subtitle" style="text-align:center">Verificador de Certificados de Delitos Sexuales</p>
 
     <div class="login-error" id="loginError"></div>
 
@@ -49,9 +80,11 @@
       <button type="submit" class="login-btn" id="loginBtn">Iniciar sesión</button>
     </form>
   </div>
+  <p id="loginVersion" style="text-align:center;color:#999;font-size:0.8rem;margin-top:1rem"></p>
 </div>
 
 <script>
+if(localStorage.getItem('vcds-dark') !== '0') document.body.classList.add('dark-mode');
 (function() {
   const form = document.getElementById('loginForm');
   const errorDiv = document.getElementById('loginError');
@@ -60,6 +93,10 @@
   fetch('/api/auth/csrf').then(r=>r.json()).then(d=>{
     document.getElementById('csrfToken').value = d.token;
   });
+
+  fetch('/api/version').then(r=>r.json()).then(d=>{
+    if(d.version) document.getElementById('loginVersion').textContent = 'v'+d.version;
+  }).catch(()=>{});
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();

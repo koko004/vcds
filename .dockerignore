@@ -9,6 +9,7 @@ LICENSE
 uploads/
 originales/
 chrome_profile/
+extension/
 .pdfjs_tmp/
 *.log
 .DS_Store
@@ -21,3 +22,5 @@ config.json
 auth.json
 start.sh
 start_server.sh
+imports/
+*.pdf

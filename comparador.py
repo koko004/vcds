@@ -1,9 +1,19 @@
 import difflib
+import re
 from extractor import extraer_texto, extraer_csv, extraer_dni, extraer_nombre, extraer_fecha, extraer_no_consta
 
 
 def normalizar(texto: str) -> str:
     return " ".join(texto.split()).strip()
+
+
+def normalizar_nombre(nombre):
+    """Quita caracteres imposibles en nombres españoles (artefactos OCR/markdown).
+    Devuelve el valor tal cual si no es texto."""
+    if not isinstance(nombre, str):
+        return nombre
+    t = re.sub(r'[*_~#?¿!¡"\'`^$%@|/\\=+\[\]{}()]', '', nombre)
+    return " ".join(t.split()).strip()
 
 
 def comparar_texto(texto_usuario: str, texto_original: str) -> dict:
@@ -37,7 +47,10 @@ def comparar_datos(datos_usuario: dict, datos_original: dict) -> dict:
                 todo_ok = False
             resultados[campo] = {"coincide": ok, "usuario": v1, "original": v2}
         elif v1 and v2:
-            ok = v1.strip().upper() == v2.strip().upper()
+            if campo == "nombre":
+                ok = normalizar_nombre(v1).upper() == normalizar_nombre(v2).upper()
+            else:
+                ok = v1.strip().upper() == v2.strip().upper()
             if not ok:
                 todo_ok = False
             resultados[campo] = {"coincide": ok, "usuario": v1, "original": v2}

@@ -10,6 +10,88 @@
 <title>VCDS</title>
 <link rel="stylesheet" href="/static/style.css">
 <style>
+:root {
+  --bg: #edf0e8;
+  --bg-card: #ffffff;
+  --bg-input: #f4f6f0;
+  --bg-hover: #e6eae0;
+  --text: #161b14;
+  --text-sub: #5b6157;
+  --text-muted: #8a9186;
+  --border: #d3d8cc;
+  --border-light: #e2e6dc;
+  --shadow: rgba(30,40,25,0.1);
+  --accent: #4d7c0f;
+  --accent-ink: #ffffff;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --font-disp: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.dark-mode {
+  --bg: #080a08;
+  --bg-card: #0e110e;
+  --bg-input: #141814;
+  --bg-hover: #171b16;
+  --text: #f4f5f2;
+  --text-sub: #b6bbb0;
+  --text-muted: #7f867a;
+  --border: rgba(255,255,255,0.12);
+  --border-light: rgba(255,255,255,0.08);
+  --shadow: rgba(0,0,0,0.55);
+  --accent: #d7ff3f;
+  --accent-ink: #0c0f02;
+}
+body { background: var(--bg); color: var(--text); }
+.card { background: var(--bg-card); box-shadow: 0 1px 3px var(--shadow); }
+.card h2 { color: var(--text); }
+.subtitle { color: var(--text-sub); }
+.dato-item label { color: var(--text-muted); }
+.dato-item .valor { color: var(--text); background: var(--bg-input); }
+.drop-zone p { color: var(--text-sub); }
+.drop-zone:hover, .drop-zone.dragover { background: var(--bg-hover); }
+.campo-comp { background: var(--bg-input); color: var(--text); }
+.batch-item { background: var(--bg-input); color: var(--text); }
+.batch-item .batch-status { color: var(--text-sub); }
+.batch-item.clickable:hover { background: var(--bg-hover); }
+.batch-detail-panel { background: var(--bg-card) !important; border-color: var(--border) !important; color: var(--text); }
+.debug-body { background: #1a1a1a; }
+.process-log { background: #111; color: #aaa; }
+.dato-input { background: var(--bg-input); color: var(--text); border-color: var(--border); }
+.dato-input:focus { background: var(--bg-card); }
+.dark-mode input[type="text"], .dark-mode input[type="password"] { background: var(--bg-input) !important; color: var(--text) !important; border-color: var(--border) !important; }
+.dark-mode input::placeholder { color: var(--text-muted) !important; }
+h1 { color: var(--text); }
+.paso { background: var(--bg-input); color: var(--text); }
+.dark-toggle {
+  width: 40px; height: 22px; border-radius: 11px; border: none; cursor: pointer;
+  background: #333; position: relative; transition: background 0.3s; flex-shrink: 0;
+}
+.dark-toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #d4a017; transition: transform 0.3s, background 0.3s;
+}
+.dark-mode .dark-toggle { background: #d4a017; }
+.dark-mode .dark-toggle::after { transform: translateX(18px); background: #1a1a1a; }
+.dark-mode .campo-comp.ok { background: #0d2818; border-left-color: #22c55e; }
+.dark-mode .campo-comp.fail { background: #2a1215; border-left-color: #ef4444; }
+.dark-mode .badge-ok { background: #14532d; color: #86efac; }
+.dark-mode .badge-fail { background: #450a0a; color: #fca5a5; }
+.dark-mode .btn-secondary { background: var(--bg-hover); color: var(--text); }
+.dark-mode .btn-secondary:hover { background: var(--border); }
+.dark-mode .result-card { background: var(--bg-card); }
+.dark-mode .detalles h3 { color: var(--text-muted); }
+.dark-mode .debug-toggle { background: #1a1a1a; border-color: #333; color: #d4a017; }
+.dark-mode details > div > div[style*="f8f9fa"],
+.dark-mode details > div > div[style*="f3e8ff"],
+.dark-mode details > div > div[style*="e0f2fe"],
+.dark-mode details > div > div[style*="fef3c7"] { background: var(--bg-input) !important; border-color: var(--border) !important; }
+.dark-mode details > div > div[style*="f3e8ff"] label { color: var(--text) !important; }
+.dark-mode details > div > div[style*="e0f2fe"] label { color: var(--text) !important; }
+.dark-mode details > div > div[style*="fef3c7"] label { color: var(--text) !important; }
+.dark-mode details > div > div[style*="f3e8ff"] p { color: var(--text-sub) !important; }
+.dark-mode details > div > div[style*="e0f2fe"] p { color: var(--text-sub) !important; }
+.dark-mode details > div > div[style*="fef3c7"] p { color: var(--text-sub) !important; }
+.dark-mode details summary { color: var(--text-sub) !important; }
 @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
 .loading-bar { height:4px; background:linear-gradient(90deg,#2563eb,#7c3aed,#2563eb); background-size:200%; animation:slide 1.5s ease infinite; border-radius:4px; margin:1rem 0; }
 @keyframes slide { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
@@ -30,9 +112,82 @@
 .btn-chrome-ocr:disabled { background:#86efac; cursor:not-allowed; transform:none; box-shadow:none; }
 .btn-chrome-ocr.processing { pointer-events:none; }
 .btn-chrome-ocr.processing::after { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent); animation:shimmer 1.5s infinite; }
+.btn-compare { background:#7c3aed; color:#fff; border:none; padding:0.6rem 1.2rem; border-radius:8px; font-size:0.9rem; font-weight:600; cursor:pointer; transition:all 0.3s; position:relative; overflow:hidden; }
+.btn-compare:hover { background:#6d28d9; transform:translateY(-1px); box-shadow:0 4px 12px rgba(124,58,237,0.4); }
+.btn-compare:disabled { background:#c4b5fd; cursor:not-allowed; transform:none; box-shadow:none; }
+.btn-compare.processing { pointer-events:none; }
+.btn-compare.processing::after { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent); animation:shimmer 1.5s infinite; }
+.compare-card { border:2px solid #7c3aed; }
+.compare-card .campo-comp { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 0.75rem; border-radius:6px; margin-bottom:0.4rem; font-size:0.9rem; }
+.compare-card .campo-comp.ok { background:#f0fdf4; border:1px solid #bbf7d0; }
+.compare-card .campo-comp.fail { background:#fef2f2; border:1px solid #fecaca; }
+.compare-card .campo-comp .badge { padding:0.2rem 0.6rem; border-radius:12px; font-size:0.75rem; font-weight:600; }
+.compare-card .campo-comp .badge.badge-ok { background:#dcfce7; color:#166534; }
+.compare-card .campo-comp .badge.badge-fail { background:#fee2e2; color:#991b1b; }
+.compare-card .campo-comp .campo-detalle { font-size:0.8rem; color:#666; margin-top:0.25rem; }
+.compare-card .campo-comp .campo-valores { display:flex; gap:0.5rem; flex-wrap:wrap; }
+.compare-card .campo-comp .campo-valores span { font-size:0.85rem; }
+.compare-card .veredicto-pre { text-align:center; padding:1rem; border-radius:8px; margin-bottom:1rem; font-weight:600; font-size:1rem; }
+.compare-card .veredicto-pre.ok { background:#dcfce7; color:#166534; border:1px solid #bbf7d0; }
+.compare-card .veredicto-pre.warn { background:#fef3c7; color:#92400e; border:1px solid #fde68a; }
+.compare-card .veredicto-pre.error { background:#fee2e2; color:#991b1b; border:1px solid #fecaca; }
 .btn-ocr.processing { pointer-events:none; }
 .btn-ocr.processing::after { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent); animation:shimmer 1.5s infinite; }
+.btn-ai-ocr { background:linear-gradient(135deg,#7c3aed,#2563eb); color:#fff; border:none; padding:0.6rem 1.2rem; border-radius:8px; font-size:0.9rem; font-weight:600; cursor:pointer; transition:all 0.3s; position:relative; overflow:hidden; }
+.btn-ai-ocr:hover { background:linear-gradient(135deg,#6d28d9,#1d4ed8); transform:translateY(-1px); box-shadow:0 4px 12px rgba(124,58,237,0.4); }
+.btn-ai-ocr:disabled { background:linear-gradient(135deg,#c4b5fd,#93c5fd); cursor:not-allowed; transform:none; box-shadow:none; }
+.btn-ai-ocr.processing { pointer-events:none; }
+.btn-ai-ocr.processing::after { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent); animation:shimmer 1.5s infinite; }
+.ai-ocr-card { border:2px solid #7c3aed; }
+.ai-ocr-card .ai-header { display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem; padding:0.6rem 0.75rem; background:linear-gradient(135deg,#ede9fe,#dbeafe); border-radius:8px; }
+.ai-ocr-card .ai-header .ai-icon { font-size:1.2rem; }
+.ai-ocr-card .ai-header .ai-label { font-weight:600; color:#5b21b6; font-size:0.9rem; }
+.ai-ocr-card .ai-header .ai-model { font-size:0.75rem; color:#7c3aed; margin-left:auto; background:#f3e8ff; padding:0.2rem 0.5rem; border-radius:12px; }
+.toggle-switch { position:relative; display:inline-block; width:52px; height:28px; flex-shrink:0; }
+.toggle-switch input { opacity:0; width:0; height:0; }
+.toggle-slider { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background:#ccc; border-radius:28px; transition:all 0.3s ease; display:flex; align-items:center; justify-content:space-between; padding:0 6px; font-size:0.65rem; font-weight:700; color:rgba(255,255,255,0.9); letter-spacing:0.5px; }
+.toggle-slider:before { position:absolute; content:""; height:22px; width:22px; left:3px; bottom:3px; background:white; border-radius:50%; transition:all 0.3s ease; box-shadow:0 2px 4px rgba(0,0,0,0.2); z-index:1; }
+.toggle-slider .toggle-on { position:relative; z-index:0; margin-left:2px; }
+.toggle-slider .toggle-off { position:relative; z-index:0; margin-right:2px; }
+input:checked + .toggle-slider { background:linear-gradient(135deg,#22c55e,#16a34a); box-shadow:0 2px 8px rgba(34,197,94,0.4); }
+input:checked + .toggle-slider:before { transform:translateX(24px); }
+input:not(:checked) + .toggle-slider { background:linear-gradient(135deg,#9ca3af,#6b7280); box-shadow:0 2px 8px rgba(107,114,128,0.3); }
+.model-search-wrapper { position:relative; }
+.model-search-input { width:100%; padding:0.4rem 0.6rem; border:1px solid #c4b5fd; border-radius:4px; font-size:0.85rem; font-family:monospace; box-sizing:border-box; }
+.model-search-results { position:absolute; top:100%; left:0; right:0; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #c4b5fd; border-top:none; border-radius:0 0 4px 4px; z-index:100; display:none; }
+.model-search-results.open { display:block; }
+.model-search-results div { padding:0.3rem 0.5rem; cursor:pointer; font-size:0.8rem; border-bottom:1px solid #f3f4f6; }
+.model-search-results div:hover { background:#f3e8ff; }
+.model-search-results div.active { background:#ede9fe; font-weight:600; }
 @keyframes shimmer { 100%{left:100%} }
+.debug-toggle { position:fixed; bottom:20px; right:20px; z-index:9999; width:48px; height:48px; border-radius:50%; background:#1a1a1a; color:#e5e5e5; border:1px solid #333; font-size:1.2rem; cursor:pointer; box-shadow:0 4px 20px rgba(0,0,0,0.5); transition:all 0.2s; display:flex; align-items:center; justify-content:center; }
+.debug-toggle:hover { background:#333; transform:scale(1.1); }
+.debug-toggle.has-new { animation:debugpulse 1s ease infinite; }
+@keyframes debugpulse { 0%,100%{box-shadow:0 0 0 0 rgba(100,200,255,0.3)} 50%{box-shadow:0 0 0 8px rgba(100,200,255,0)} }
+.debug-console { position:fixed; bottom:80px; right:20px; z-index:9998; width:540px; max-height:420px; background:#1e1e1e; border:1px solid #404040; border-radius:10px; box-shadow:0 12px 48px rgba(0,0,0,0.6); display:none; flex-direction:column; overflow:hidden; }
+.debug-console.open { display:flex; }
+.debug-titlebar { display:flex; align-items:center; gap:8px; padding:10px 14px; background:#2d2d2d; border-bottom:1px solid #404040; user-select:none; }
+.debug-traffic { display:flex; gap:6px; }
+.debug-traffic span { width:12px; height:12px; border-radius:50%; cursor:pointer; transition:filter 0.15s; }
+.debug-traffic .btn-close { background:#ff5f57; }
+.debug-traffic .btn-minimize { background:#ffbd2e; }
+.debug-traffic .btn-maximize { background:#28c840; }
+.debug-traffic span:hover { filter:brightness(1.3); }
+.debug-titlebar-text { flex:1; text-align:center; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',monospace; font-size:0.78rem; color:#999; letter-spacing:0.3px; }
+.debug-titlebar-right { display:flex; gap:4px; }
+.debug-titlebar-right button { background:none; border:none; color:#888; cursor:pointer; font-size:0.85rem; padding:2px 6px; border-radius:4px; transition:all 0.15s; }
+.debug-titlebar-right button:hover { background:#404040; color:#e5e5e5; }
+.debug-body { flex:1; overflow-y:auto; padding:8px 12px; font-family:'SF Mono','Menlo','Monaco','Courier New',monospace; font-size:0.75rem; line-height:1.6; background:#1e1e1e; }
+.debug-body::-webkit-scrollbar { width:5px; }
+.debug-body::-webkit-scrollbar-track { background:#1e1e1e; }
+.debug-body::-webkit-scrollbar-thumb { background:#555; border-radius:3px; }
+.debug-body::-webkit-scrollbar-thumb:hover { background:#777; }
+.debug-line { color:#d4d4d4; white-space:pre-wrap; word-break:break-all; padding:1px 0; }
+.debug-line.error { color:#f48771; }
+.debug-line.success { color:#89d185; }
+.debug-line.info { color:#6a9ee5; }
+.debug-line.warn { color:#e5c07b; }
+.debug-line .ts { color:#666; margin-right:6px; }
 .ocr-status { display:flex; align-items:center; gap:0.5rem; margin-top:0.75rem; padding:0.75rem 1rem; background:#fdf2f8; border:1px solid #f9a8d4; border-radius:8px; font-size:0.85rem; color:#be185d; }
 .ocr-status .ocr-spinner { width:16px; height:16px; border:2px solid #f9a8d4; border-top-color:#ec4899; border-radius:50%; animation:spin 0.8s linear infinite; flex-shrink:0; }
 .dato-input { width:100%; padding:0.5rem 0.75rem; border:1.5px solid #d1d5db; border-radius:8px; font-size:0.95rem; font-family:inherit; background:#fafafa; transition:border-color 0.2s, box-shadow 0.2s; box-sizing:border-box; }
@@ -53,26 +208,288 @@ select.dato-input { cursor:pointer; }
 .batch-item .batch-icon { width:20px; text-align:center; flex-shrink:0; }
 .batch-item .batch-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .batch-item .batch-status { font-size:0.75rem; color:#666; flex-shrink:0; }
+.batch-item.clickable:hover { background:#e8f4fc; border-left-color:#2563eb; }
+.batch-detail-panel { animation: slideDown 0.2s ease-out; }
+@keyframes slideDown { from { opacity:0; max-height:0; } to { opacity:1; max-height:500px; } }
 .batch-progress { height:6px; background:#e5e7eb; border-radius:3px; margin-bottom:0.75rem; overflow:hidden; }
 .batch-progress-bar { height:100%; background:linear-gradient(90deg,#2563eb,#7c3aed); transition:width 0.3s; border-radius:3px; }
 .batch-summary { display:flex; gap:1rem; flex-wrap:wrap; margin-top:0.75rem; font-size:0.85rem; }
 .batch-summary span { display:flex; align-items:center; gap:0.3rem; }
+
+/* ===== VCDS Consola Forense · estética isbetter.ai (solo presentación) ===== */
+::selection { background: var(--accent); color: var(--accent-ink); }
+body { background-image: radial-gradient(color-mix(in srgb, var(--accent) 7%, transparent) 1px, transparent 1px); background-size: 22px 22px; }
+.card { border: 1px solid var(--border); border-radius: 12px; }
+.card h2 { font-family: var(--font-disp); font-size: 0.95rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text); display: flex; align-items: center; gap: 0.6rem; }
+.card h2::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 12px var(--accent); flex-shrink: 0; }
+.subtitle { font-family: var(--font-mono); font-size: 0.8rem; }
+h1 { font-family: var(--font-disp); letter-spacing: 0.06em; }
+#appVersion { font-family: var(--font-mono); background: var(--bg-hover); border: 1px solid var(--border); border-radius: 6px; padding: 0.1rem 0.45rem; color: var(--accent) !important; }
+#userLabel { font-family: var(--font-mono); color: var(--text-sub) !important; }
+#userLabel::before { content: "> "; color: var(--accent); }
+.dark-mode .card { box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
+/* cabecera de consola con punto de estado */
+.console-head { display: flex; align-items: center; gap: 0.6rem; padding: 0.55rem 0.8rem; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.75rem; font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-sub); }
+.console-head .status-dot { width: 9px; height: 9px; border-radius: 50%; background: #52525b; flex-shrink: 0; }
+.console-head .status-dot.run { background: var(--accent); box-shadow: 0 0 10px var(--accent); animation: pulse 1.2s ease infinite; }
+.console-head .status-dot.ok { background: #22c55e; box-shadow: 0 0 10px #22c55e; }
+.console-head .status-dot.err { background: #ef4444; box-shadow: 0 0 10px #ef4444; }
+.console-head .console-title { font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text); }
+.console-head .console-meta { margin-left: auto; display: flex; gap: 0.4rem; align-items: center; }
+/* pie de consola con métricas */
+.console-foot { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-top: 0.75rem; padding-top: 0.6rem; border-top: 1px dashed var(--border); font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); }
+.metric { display: inline-flex; align-items: center; gap: 0.35rem; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 6px; padding: 0.15rem 0.55rem; color: var(--text-sub); white-space: nowrap; }
+.metric b { color: var(--accent); font-weight: 700; }
+.metric.ok b { color: #4ade80; }
+.metric.err b { color: #f87171; }
+/* drop-zone terminal */
+.drop-zone { border: 1.5px dashed var(--border); border-radius: 12px; font-family: var(--font-mono); }
+.drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); }
+.dark-mode .drop-zone:hover, .dark-mode .drop-zone.dragover { background: rgba(215,255,63,0.04); box-shadow: inset 0 0 30px rgba(215,255,63,0.04); }
+.drop-zone-icon { filter: grayscale(0.4); }
+/* batch como tarjetas de batalla */
+.batch-item { background: var(--bg-input); border: 1px solid var(--border); border-left-width: 3px; border-radius: 10px; font-family: var(--font-mono); }
+.batch-item .batch-name { color: var(--text); }
+.batch-item .batch-status { background: var(--bg-hover); border: 1px solid var(--border); border-radius: 6px; padding: 0.1rem 0.5rem; font-size: 0.7rem; }
+.batch-item.procesando { border-left-color: var(--accent); }
+.dark-mode .batch-item.procesando { background: rgba(215,255,63,0.04); }
+.batch-item.completado { border-left-color: #22c55e; }
+.batch-item.omitido { border-left-color: #f59e0b; background: var(--bg-input); }
+.batch-item.error { border-left-color: #ef4444; }
+.batch-item.clickable:hover { border-left-color: var(--accent); background: var(--bg-hover); }
+.batch-progress { background: var(--bg-hover); border: 1px solid var(--border); }
+.batch-progress-bar { background: linear-gradient(90deg, var(--accent), #86efac); }
+#batchProgress { font-family: var(--font-mono); color: var(--text-sub) !important; }
+.batch-summary span { font-family: var(--font-mono); font-size: 0.75rem; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 6px; padding: 0.2rem 0.6rem; }
+/* visor como terminal */
+#visorWrapper { border-color: var(--border) !important; border-radius: 10px; }
+#visorLoading { font-family: var(--font-mono); }
+.dark-mode #visorLoading { background: rgba(8,10,8,0.85) !important; color: var(--accent) !important; }
+.loading-bar { background: linear-gradient(90deg, var(--accent), #4d7c0f, var(--accent)); background-size: 200%; }
+.loading-text { color: var(--text-sub); font-family: var(--font-mono); }
+#typeInput { background: var(--bg-input) !important; color: var(--text) !important; border-color: var(--border) !important; font-family: var(--font-mono); }
+/* datos OCR en mono */
+.datos-grid { font-family: var(--font-mono); }
+.dato-input { font-family: var(--font-mono); font-size: 0.85rem; }
+.ocr-status { border-color: var(--border); color: var(--text-sub); font-family: var(--font-mono); }
+.dark-mode .ocr-status { background: rgba(215,255,63,0.05); }
+/* consola IA */
+.ai-ocr-card { border: 1px solid var(--border); border-radius: 12px; }
+.ai-ocr-card .ai-header { background: var(--bg-hover); border: 1px solid var(--border); font-family: var(--font-mono); }
+.ai-ocr-card .ai-header .ai-label { color: var(--text); }
+.ai-ocr-card .ai-header .ai-model { background: var(--bg-input); border: 1px solid var(--border); color: var(--accent); font-family: var(--font-mono); }
+/* comparador lado a lado */
+.compare-card { border: 1px solid var(--border); border-radius: 12px; }
+.compare-card .campo-comp { font-family: var(--font-mono); font-size: 0.82rem; }
+.compare-card .campo-comp .campo-valores { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; width: 100%; margin-top: 0.4rem; }
+.compare-card .campo-comp .campo-valores span { background: var(--bg-hover); border: 1px solid var(--border); border-radius: 6px; padding: 0.35rem 0.55rem; font-size: 0.8rem; overflow-wrap: anywhere; }
+.compare-card .campo-comp .campo-valores span:first-child::before { content: "PDF · "; color: var(--text-muted); font-size: 0.68rem; }
+.compare-card .campo-comp .campo-valores span:last-child::before { content: "MINISTERIO · "; color: var(--text-muted); font-size: 0.68rem; }
+.compare-card .veredicto-pre { font-family: var(--font-disp); letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.9rem; }
+.compare-card .veredicto-pre.ok { background: rgba(34,197,94,0.1); color: #4ade80; border-color: rgba(34,197,94,0.35); }
+.compare-card .veredicto-pre.error { background: rgba(239,68,68,0.1); color: #f87171; border-color: rgba(239,68,68,0.35); }
+.compare-card .veredicto-pre.warn { background: rgba(245,158,11,0.1); color: #fbbf24; border-color: rgba(245,158,11,0.35); }
+body:not(.dark-mode) .compare-card .veredicto-pre.ok { color: #166534; }
+body:not(.dark-mode) .compare-card .veredicto-pre.error { color: #991b1b; }
+body:not(.dark-mode) .compare-card .veredicto-pre.warn { color: #92400e; }
+/* consola debug */
+.debug-console { background: #080a08; border: 1px solid rgba(255,255,255,0.14); }
+.debug-titlebar { background: #0e110e; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.debug-titlebar-text { font-family: var(--font-mono); color: #b6bbb0; }
+.debug-body { background: #080a08; font-family: var(--font-mono); }
+.debug-toggle { background: #0e110e; border-color: rgba(255,255,255,0.16); color: #d7ff3f; }
+.dark-mode .debug-toggle { background: #0e110e; border-color: rgba(255,255,255,0.16); color: #d7ff3f; }
+.debug-foot { display: flex; gap: 0.5rem; padding: 6px 12px; border-top: 1px solid rgba(255,255,255,0.1); background: #0e110e; font-family: var(--font-mono); font-size: 0.68rem; color: #7f867a; }
+/* process-log terminal */
+.process-log { background: #080a08; border: 1px solid var(--border); color: #b6bbb0; }
+.process-log .log-line:last-child { color: #d7ff3f; }
+body:not(.dark-mode) .process-log .log-line:last-child { color: var(--accent); }
+/* toggles y config en tema consola */
+.toggle-switch .toggle-slider { font-family: var(--font-mono); }
+input[type="text"], input[type="password"], input[type="number"] { font-family: var(--font-mono); font-size: 0.82rem; }
+/* autofill: que no pinte cuadros blancos */
+input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus,
+select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text);
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-input) inset;
+  transition: background-color 9999s ease-in-out 0s;
+}
+/* scrollbars finos */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a2f2a; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #3a403a; }
+@media (max-width: 640px) {
+  .compare-card .campo-comp .campo-valores { grid-template-columns: 1fr; }
+}
+/* ----- botones terminal (modo claro) ----- */
+.btn, .btn-ocr, .btn-ai-ocr, .btn-ministerio,
+.btn-chrome-ocr, .btn-compare {
+  font-family: var(--font-mono); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.05em;
+  background: #ffffff !important; color: var(--text) !important;
+  border: 1px solid var(--border) !important; border-radius: 8px;
+  box-shadow: none; text-transform: none;
+}
+.btn:hover:not(:disabled), .btn-ocr:hover:not(:disabled),
+.btn-ai-ocr:hover:not(:disabled), .btn-ministerio:hover:not(:disabled),
+.btn-chrome-ocr:hover:not(:disabled), .btn-compare:hover:not(:disabled) {
+  border-color: var(--accent) !important; color: var(--accent) !important;
+  transform: translateY(-1px);
+}
+.btn:disabled, .btn-ocr:disabled, .btn-ai-ocr:disabled,
+.btn-ministerio:disabled, .btn-chrome-ocr:disabled, .btn-compare:disabled { opacity: 0.45; }
+.btn-primary {
+  background: var(--accent) !important; color: #fff !important; border-color: var(--accent) !important;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent) !important; color: #fff !important; border-color: var(--accent) !important;
+  filter: brightness(1.12);
+}
+/* ----- botón Importar cabecera (amarillo isbetter.ai) ----- */
+.btn-importar {
+  background: var(--accent) !important; color: var(--accent-ink) !important; border: 1px solid var(--accent) !important;
+  font-family: var(--font-mono); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.05em;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.btn-importar:hover:not(:disabled) {
+  background: var(--accent) !important; color: var(--accent-ink) !important; border-color: var(--accent) !important;
+  filter: brightness(1.1);
+}
+.btn-importar:disabled { opacity: 0.55; }
+/* ----- botones terminal (dark) ----- */
+.dark-mode .btn, .dark-mode .btn-ocr, .dark-mode .btn-ai-ocr, .dark-mode .btn-ministerio,
+.dark-mode .btn-chrome-ocr, .dark-mode .btn-compare {
+  font-family: var(--font-mono); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.05em;
+  background: #171b16 !important; color: #f4f5f2 !important;
+  border: 1px solid rgba(255,255,255,0.18) !important; border-radius: 8px;
+  box-shadow: none; text-transform: none;
+}
+.dark-mode .btn:hover:not(:disabled), .dark-mode .btn-ocr:hover:not(:disabled),
+.dark-mode .btn-ai-ocr:hover:not(:disabled), .dark-mode .btn-ministerio:hover:not(:disabled),
+.dark-mode .btn-chrome-ocr:hover:not(:disabled), .dark-mode .btn-compare:hover:not(:disabled) {
+  border-color: var(--accent) !important; color: var(--accent) !important;
+  box-shadow: 0 0 16px rgba(215,255,63,0.18); transform: translateY(-1px);
+  background: #171b16 !important;
+}
+.dark-mode .btn:disabled, .dark-mode .btn-ocr:disabled, .dark-mode .btn-ai-ocr:disabled,
+.dark-mode .btn-ministerio:disabled, .dark-mode .btn-chrome-ocr:disabled, .dark-mode .btn-compare:disabled { opacity: 0.4; }
+/* acción primaria en lima */
+.dark-mode .btn-primary {
+  background: var(--accent) !important; color: #0c0f02 !important; border-color: var(--accent) !important;
+  box-shadow: 0 0 20px rgba(215,255,63,0.28);
+}
+.dark-mode .btn-primary:hover:not(:disabled) {
+  background: var(--accent) !important; color: #0c0f02 !important; border-color: var(--accent) !important;
+  filter: brightness(1.1); box-shadow: 0 0 26px rgba(215,255,63,0.4);
+}
+/* acciones destructivas en rojo terminal */
+.dark-mode #btnLogout, .dark-mode #btnClearUploads {
+  color: #f87171 !important; border-color: rgba(239,68,68,0.45) !important;
+}
+.dark-mode #btnLogout:hover, .dark-mode #btnClearUploads:hover {
+  border-color: #ef4444 !important; color: #ef4444 !important;
+  box-shadow: 0 0 16px rgba(239,68,68,0.22);
+}
+/* ----- botón Importar cabecera en dark (amarillo isbetter.ai) ----- */
+.dark-mode .btn-importar {
+  background: var(--accent) !important; color: #0c0f02 !important; border-color: var(--accent) !important;
+  box-shadow: 0 0 20px rgba(215,255,63,0.35);
+}
+.dark-mode .btn-importar:hover:not(:disabled) {
+  background: var(--accent) !important; color: #0c0f02 !important; border-color: var(--accent) !important;
+  filter: brightness(1.08);
+}
+.dark-mode .btn-importar:disabled { opacity: 0.55; }
+/* ----- piloto lima en summaries (config / importar) ----- */
+details > summary { list-style: none; display: flex; align-items: center; gap: 0.6rem; cursor: pointer; font-family: var(--font-disp); font-size: 0.85rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text) !important; }
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 12px var(--accent); flex-shrink: 0; }
+/* ----- NO CONSTA select ----- */
+.dark-mode select.dato-input { background: var(--bg-input) !important; color: var(--text) !important; border-color: var(--border) !important; }
+.dark-mode select.dato-input option { background: #141814; color: #f4f5f2; }
+/* ----- panel importación ----- */
+.dark-mode #importPanel input { background: var(--bg-input) !important; color: var(--text) !important; border-color: var(--border) !important; }
+.dark-mode #importPanel input::placeholder { color: var(--text-muted) !important; }
+.dark-mode #importPanel label { color: var(--text-sub) !important; }
+.dark-mode details div[style*="f0fdf4"] { background: rgba(34,197,94,0.07) !important; border-color: rgba(34,197,94,0.3) !important; }
+.dark-mode details div[style*="f0fdf4"] p { color: #86efac !important; }
+/* ----- cualquier caja clara residual (contenido JS incluido) ----- */
+.dark-mode div[style*="f8f9fa"] { background: var(--bg-input) !important; }
+.dark-mode div[style*="fffbeb"] { background: var(--bg-input) !important; }
+.dark-mode span[style*="fef2f2"], .dark-mode span[style*="f0fdf4"] { border: 1px solid var(--border); }
+/* ----- dropdown de modelos ----- */
+.dark-mode .model-search-results { background: #141814 !important; border-color: var(--border) !important; }
+.dark-mode .model-search-results div { border-color: var(--border-light) !important; color: var(--text) !important; }
+.dark-mode .model-search-results div:hover { background: var(--bg-hover) !important; }
+.dark-mode .model-search-results div.active { background: var(--bg-hover) !important; }
+/* ----- foco en inputs ----- */
+.dark-mode .dato-input:focus { background: var(--bg-card) !important; border-color: var(--accent) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent) !important; }
+/* ----- modal visor PDF ----- */
+.dark-mode #pdfViewerModal > div { background: #0e110e !important; }
+.dark-mode #pdfViewerModal > div > div:first-child { background: var(--bg-hover) !important; border-color: var(--border) !important; }
+.dark-mode #pdfViewerModal strong { color: var(--text) !important; }
+/* ----- logs de importación como terminal ----- */
+.dark-mode #importLogs { background: #080a08 !important; color: #b6bbb0 !important; border: 1px solid var(--border) !important; border-radius: 8px; }
+.dark-mode #importLogs div[style*="16a34a"] { color: #4ade80 !important; }
+.dark-mode #importLogs div[style*="dc2626"] { color: #f87171 !important; }
+/* ----- filas de documentos importados ----- */
+.dark-mode #importDocsContainer > div { background: var(--bg-input) !important; }
+#debugDockCard h2.dock-title::before { display: none; }
+/* ----- layout dividido: consola al lado ----- */
+.container { max-width: 1360px; }
+.layout-body { display: grid; grid-template-columns: minmax(0,1fr) 440px; gap: 1rem; align-items: start; }
+.layout-main { min-width: 0; display: flex; flex-direction: column; }
+.layout-main > .card:last-child { margin-bottom: 0; }
+.layout-side { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; min-width: 0; }
+.layout-side .card { margin-bottom: 0; }
+.layout-side .debug-console.docked { max-height: 56vh; }
+@media (max-width: 1100px) {
+  .layout-body { grid-template-columns: 1fr; }
+  .layout-side { position: static; max-height: none; }
+  .layout-main > .card:last-child { margin-bottom: 1rem; }
+}
+/* ----- cajas de resultado del análisis ----- */
+.dark-mode .campo-comp { background: var(--bg-input) !important; color: var(--text); border: 1px solid var(--border); }
+.dark-mode #resultadoContent p[style*="color:#555"] { color: var(--text-sub) !important; }
+.dark-mode .detalles { font-family: var(--font-mono); font-size: 0.85rem; }
+.dark-mode .veredicto { font-family: var(--font-disp); letter-spacing: 0.08em; }
+/* ----- spinner siempre lima ----- */
+.spinner { border-color: var(--border) !important; border-top-color: var(--accent) !important; }
+.debug-toggle { display: none; }
+.debug-console.docked { position: static; width: 100% !important; max-height: 340px; margin-top: 0; }
+/* ----- fondos oscuros en estados (ganan a las reglas claras originales) ----- */
+.dark-mode .batch-item.procesando { background: rgba(37,99,235,0.12) !important; }
+.dark-mode .batch-item.completado { background: rgba(34,197,94,0.08) !important; }
+.dark-mode .batch-item.omitido { background: var(--bg-input) !important; }
+.dark-mode .batch-item.error { background: rgba(239,68,68,0.08) !important; }
+.dark-mode .compare-card .campo-comp.ok { background: rgba(34,197,94,0.1) !important; border-color: rgba(34,197,94,0.35) !important; }
+.dark-mode .compare-card .campo-comp.fail { background: rgba(239,68,68,0.1) !important; border-color: rgba(239,68,68,0.35) !important; }
+.dark-mode .ocr-status { background: rgba(215,255,63,0.06) !important; }
+.dark-mode .ai-ocr-card .ai-header { background: var(--bg-hover) !important; }
+/* ----- piloto verde con actividad en la terminal ----- */
+.debug-titlebar-text::before { content: "● "; color: #3f4a3a; transition: color 0.3s; }
+.debug-console.live .debug-titlebar-text::before { color: #4ade80; text-shadow: 0 0 8px #4ade80; animation: pulse 1s ease infinite; }
 </style>
 </head>
 <body>
 <div class="container">
   <div style="display:flex;align-items:center;gap:1.25rem;margin-bottom:0.5rem">
-    <img src="/static/logo.png" alt="Logo VCDS" style="height:80px;width:auto;flex-shrink:0">
+    <img src="/static/logo.png?v=1.1.0" alt="Logo VCDS" style="height:80px;width:auto;flex-shrink:0">
     <div style="flex:1">
       <h1>VCDS <span id="appVersion" style="font-size:0.5em;color:#999;font-weight:normal"></span></h1>
       <p class="subtitle">Comprueba si un certificado es original o ha sido manipulado</p>
     </div>
     <div style="display:flex;align-items:center;gap:0.75rem;flex-shrink:0">
       <span id="userLabel" style="font-size:0.85rem;color:#666"></span>
+      <button class="btn" id="btnNuevaVerificacion" style="padding:0.4rem 1rem;font-size:0.85rem;background:#2563eb;color:#fff;border-radius:6px">Nueva verificación</button>
+      <button class="btn btn-importar" id="btnImportarHeader" title="Importar y verificar automáticamente" style="padding:0.4rem 1rem;font-size:0.85rem;border-radius:6px">📥 Importar</button>
+      <button class="dark-toggle" id="btnDarkMode" title="Modo oscuro" onclick="toggleDarkMode()"></button>
       <button class="btn" id="btnLogout" style="padding:0.4rem 1rem;font-size:0.85rem;background:#dc2626;color:#fff;border-radius:6px">Cerrar sesión</button>
     </div>
   </div>
 
+  <div class="layout-body">
+  <main class="layout-main">
   <div class="card">
     <h2>1. Subir documento(s)</h2>
     <div class="drop-zone" id="dropZone">
@@ -85,17 +502,28 @@ select.dato-input { cursor:pointer; }
 
   <div class="card hidden" id="batchCard">
     <h2>Cola de procesamiento</h2>
+    <div class="console-head"><span class="status-dot" id="batchDot"></span><span class="console-title">Verificación de documentos</span><span class="console-meta"><span class="metric" id="batchMetric">en espera</span></span></div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
       <span id="batchProgress" style="font-size:0.85rem;color:#666"></span>
+      <span style="display:flex;align-items:center;gap:0.4rem;font-size:0.75rem;color:#666;font-family:var(--font-mono)">Hilos:
+        <select id="batchWorkers" class="dato-input" style="width:auto;padding:0.2rem 0.4rem;font-size:0.75rem">
+          <option value="1">1</option>
+          <option value="2" selected>2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+        </select>
+      </span>
       <button class="btn btn-secondary" id="btnStopBatch" style="padding:0.3rem 0.8rem;font-size:0.8rem;display:none">Detener</button>
     </div>
     <div class="batch-progress" id="batchProgressBar"><div class="batch-progress-bar" id="batchProgressFill"></div></div>
     <div class="batch-queue" id="batchQueue"></div>
     <div class="batch-summary" id="batchSummary"></div>
+    <div class="console-foot"><span class="metric">cola <b id="mQueue">0</b></span><span class="metric">válidos <b id="mOk">0</b></span><span class="metric">manipulados <b id="mFail">0</b></span><span class="metric">omitidos <b id="mSkip">0</b></span></div>
   </div>
 
   <div class="card hidden" id="datosCard">
     <h2>2. Datos extraídos del documento</h2>
+    <div class="console-head"><span class="status-dot ok"></span><span class="console-title">Consola OCR</span><span class="console-meta"><span class="metric" id="ocrMetric">extracción primaria</span></span></div>
     <div class="datos-grid" id="datosGrid"></div>
     <div id="ocrStatus" class="ocr-status hidden">
       <div class="ocr-spinner"></div>
@@ -104,13 +532,48 @@ select.dato-input { cursor:pointer; }
     <div class="mt-1" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center">
       <button class="btn btn-primary" id="btnVerificar">Verificar en el Ministerio</button>
       <button class="btn-ocr" id="btnReextractOcr">Reintentar con OCR</button>
+      <button class="btn-ai-ocr" id="btnAiOcr">OCR con IA</button>
       <button class="btn-ministerio" id="btnIrMinisterio">Ir al Ministerio</button>
       <button class="btn-chrome-ocr" id="btnChromeOcr">Chrome OCR</button>
+      <button class="btn-compare" id="btnCompareOcr">Comparar OCR</button>
+    </div>
+  </div>
+
+  <div class="card hidden ai-ocr-card" id="aiOcrCard">
+    <div class="ai-header">
+      <span class="ai-icon">🤖</span>
+      <span class="ai-label">OCR con Inteligencia Artificial</span>
+      <span class="ai-model" id="aiModelLabel">—</span>
+    </div>
+    <div id="aiOcrContent"></div>
+    <div class="mt-1" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-primary" id="btnAiOcrApply">Aplicar estos datos</button>
+      <button class="btn-compare" id="btnAiOcrCompare">Comparar con extracción primaria</button>
+      <button class="btn btn-secondary" id="btnAiOcrVolver">Volver a datos</button>
+    </div>
+  </div>
+
+  <div class="card hidden" id="aiOcrCompareCard">
+    <h2>Comparación: Extracción Primaria vs OCR con IA</h2>
+    <div id="aiOcrCompareContent"></div>
+    <div class="mt-1" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-primary" id="btnVerificarDesdeAiCompare">Verificar en el Ministerio</button>
+      <button class="btn btn-secondary" id="btnVolverAiOcr">Volver a OCR con IA</button>
+    </div>
+  </div>
+
+  <div class="card hidden" id="compareCard">
+    <h2>Comparación: Extracción Primaria vs Chrome OCR</h2>
+    <div id="compareContent"></div>
+    <div class="mt-1" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-primary" id="btnVerificarDesdeCompare">Verificar en el Ministerio</button>
+      <button class="btn btn-secondary" id="btnVolverDatos">Volver a datos</button>
     </div>
   </div>
 
   <div class="card hidden" id="visorCard">
     <h2>3. Visor del navegador</h2>
+    <div class="console-head"><span class="status-dot run" id="visorDot"></span><span class="console-title">Consola de verificación</span><span class="console-meta"><span class="metric">t <b id="mTime">0s</b></span><span class="metric" id="visorMetric">navegando</span></span></div>
     <div id="loadingState">
       <div class="loading-bar"></div>
       <p class="loading-text"><span class="spinner"></span> <span id="loadingMsg">Iniciando navegador...</span></p>
@@ -148,52 +611,218 @@ select.dato-input { cursor:pointer; }
 
   <div class="card" style="margin-top:1rem">
     <details>
+      <summary style="cursor:pointer;font-weight:500;color:#666">📥 Importar documentos (AsturFútbol)</summary>
+      <div style="margin-top:1rem">
+        <div id="importPanel">
+          <div style="padding:0.75rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;margin-bottom:0.75rem">
+            <p style="font-size:0.85rem;color:#166534;margin-bottom:0.5rem">Descarga automáticamente los documentos pendientes de validación desde la intranet de AsturFútbol.</p>
+          </div>
+          <form id="importCreds" onsubmit="return false" style="display:contents">
+          <div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:0.75rem">
+            <div style="display:flex;gap:0.5rem;align-items:center">
+              <label style="font-size:0.85rem;color:#666;width:80px;flex-shrink:0">Usuario:</label>
+              <input type="text" id="importUser" placeholder="Usuario intranet" autocomplete="username" style="flex:1;padding:0.4rem 0.6rem;border:1px solid #ccc;border-radius:4px;font-size:0.85rem">
+            </div>
+            <div style="display:flex;gap:0.5rem;align-items:center">
+              <label style="font-size:0.85rem;color:#666;width:80px;flex-shrink:0">Contraseña:</label>
+              <input type="password" id="importPass" placeholder="Contraseña" autocomplete="current-password" style="flex:1;padding:0.4rem 0.6rem;border:1px solid #ccc;border-radius:4px;font-size:0.85rem">
+            </div>
+            <div style="display:flex;gap:0.5rem;align-items:center">
+              <label style="font-size:0.85rem;color:#666;width:80px;flex-shrink:0">Máx docs:</label>
+              <input type="number" id="importMaxDocs" value="50" min="1" max="200" style="width:80px;padding:0.4rem 0.6rem;border:1px solid #ccc;border-radius:4px;font-size:0.85rem">
+              <label style="font-size:0.85rem;color:#666;margin-left:0.5rem">Headless:</label>
+              <label class="toggle-switch"><input type="checkbox" id="importHeadless" checked><span class="toggle-slider"><span class="toggle-on">ON</span><span class="toggle-off">OFF</span></span></label>
+            </div>
+          </div>
+          </form>
+          <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.75rem">
+            <button type="button" class="btn btn-secondary" id="btnGuardarIntranet" style="font-size:0.8rem;padding:0.35rem 0.8rem">💾 Guardar credenciales</button>
+            <span id="intranetCredStatus" style="font-size:0.8rem;color:#666"></span>
+          </div>
+          <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem">
+            <button type="button" class="btn btn-primary" id="btnStartImport" style="background:#16a34a">▶ Iniciar importación</button>
+            <button type="button" class="btn btn-secondary" id="btnStopImport" style="background:#dc2626;color:#fff;display:none">⏹ Detener</button>
+            <button type="button" class="btn btn-secondary" id="btnVerifyImported" style="background:#2563eb;color:#fff;display:none">🔍 Verificar todos</button>
+          </div>
+          <div id="importProgressBar" style="display:none;margin-bottom:0.75rem">
+            <div style="display:flex;justify-content:space-between;font-size:0.8rem;color:#666;margin-bottom:0.25rem">
+              <span id="importProgressText">0 / 0</span>
+              <span id="importProgressPct">0%</span>
+            </div>
+            <div style="height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden">
+              <div id="importProgressFill" style="height:100%;background:linear-gradient(90deg,#16a34a,#22c55e);transition:width 0.3s;border-radius:3px;width:0%"></div>
+            </div>
+            <div style="display:flex;gap:1rem;font-size:0.8rem;color:#666;margin-top:0.25rem">
+              <span>✅ Descargados: <strong id="importDownloaded">0</strong></span>
+              <span>❌ Errores: <strong id="importErrors">0</strong></span>
+            </div>
+          </div>
+          <div id="importLogs" style="max-height:200px;overflow-y:auto;background:#f8f9fa;border-radius:6px;padding:0.5rem;font-size:0.75rem;font-family:monospace;color:#374151;display:none"></div>
+          <div id="importDocsList" style="margin-top:0.75rem;display:none">
+            <h4 style="font-size:0.85rem;color:#666;margin-bottom:0.5rem">Documentos descargados (<span id="importDocsCount">0</span>)</h4>
+            <div id="importDocsContainer" style="max-height:150px;overflow-y:auto"></div>
+          </div>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="card" style="margin-top:1rem">
+    <details>
       <summary style="cursor:pointer;font-weight:500;color:#666">⚙️ Configuración</summary>
       <div style="margin-top:1rem">
 
         <div style="padding:0.75rem;background:#f8f9fa;border-radius:6px;margin-bottom:0.75rem">
           <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem">
             <label style="font-size:0.9rem;font-weight:500">Extensión Captcha Solver:</label>
-            <button class="btn" id="btnToggleExt" style="padding:0.4rem 1rem;font-size:0.85rem;border-radius:20px;font-weight:600">...</button>
+            <label class="toggle-switch"><input type="checkbox" id="btnToggleExt"><span class="toggle-slider"><span class="toggle-on">ON</span><span class="toggle-off">OFF</span></span></label>
+            <span id="extConfigStatus" style="font-size:0.75rem;color:#888"></span>
             <button class="btn btn-secondary" id="btnOpenPopup" style="padding:0.4rem 0.8rem;font-size:0.85rem;display:none">Abrir popup</button>
           </div>
-          <div class="flex gap-1 items-center">
-            <input type="password" id="configKeyExt" placeholder="Credit Key (CSK_...)" style="flex:1;padding:0.5rem 0.75rem;border:1px solid #ccc;border-radius:6px;font-size:0.9rem;font-family:monospace">
-            <button class="btn btn-primary" id="btnGuardarKeyExt">Guardar</button>
+          <div class="config-key-fields" id="extKeyFields" style="display:none">
+            <div class="flex gap-1 items-center">
+              <input type="password" id="configKeyExt" placeholder="Credit Key (CSK_...)" style="flex:1;padding:0.5rem 0.75rem;border:1px solid #ccc;border-radius:6px;font-size:0.9rem;font-family:monospace">
+              <button class="btn btn-primary" id="btnGuardarKeyExt">Guardar</button>
+            </div>
           </div>
         </div>
 
         <div style="padding:0.75rem;background:#f8f9fa;border-radius:6px;margin-bottom:0.75rem">
           <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem">
             <label style="font-size:0.9rem;font-weight:500">Scrape.do Proxy (IP rotativa):</label>
-            <button class="btn" id="btnToggleScrape" style="padding:0.4rem 1rem;font-size:0.85rem;border-radius:20px;font-weight:600">...</button>
-            <span style="font-size:0.8rem;color:#888">1000 req/mes gratis</span>
+            <label class="toggle-switch"><input type="checkbox" id="btnToggleScrape"><span class="toggle-slider"><span class="toggle-on">ON</span><span class="toggle-off">OFF</span></span></label>
+            <span id="scrapeConfigStatus" style="font-size:0.75rem;color:#888"></span>
           </div>
-          <div class="flex gap-1 items-center">
-            <input type="password" id="configKeyScrape" placeholder="Scrape.do Token..." style="flex:1;padding:0.5rem 0.75rem;border:1px solid #ccc;border-radius:6px;font-size:0.9rem;font-family:monospace">
-            <button class="btn btn-primary" id="btnGuardarKeyScrape">Guardar</button>
+          <div class="config-key-fields" id="scrapeKeyFields" style="display:none">
+            <div class="flex gap-1 items-center">
+              <input type="password" id="configKeyScrape" placeholder="Scrape.do Token..." style="flex:1;padding:0.5rem 0.75rem;border:1px solid #ccc;border-radius:6px;font-size:0.9rem;font-family:monospace">
+              <button class="btn btn-primary" id="btnGuardarKeyScrape">Guardar</button>
+            </div>
           </div>
         </div>
 
         <div style="padding:0.75rem;background:#f8f9fa;border-radius:6px;margin-bottom:0.75rem">
           <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem">
             <label style="font-size:0.9rem;font-weight:500">2Captcha (Resolver captcha automáticamente):</label>
-            <button class="btn" id="btnToggle2Captcha" style="padding:0.4rem 1rem;font-size:0.85rem;border-radius:20px;font-weight:600">...</button>
+            <label class="toggle-switch"><input type="checkbox" id="btnToggle2Captcha"><span class="toggle-slider"><span class="toggle-on">ON</span><span class="toggle-off">OFF</span></span></label>
+            <span id="captchaConfigStatus" style="font-size:0.75rem;color:#888"></span>
+            <span id="captchaBalance" style="font-size:0.75rem;color:#16a34a;margin-left:auto;font-weight:500"></span>
           </div>
-          <div class="flex gap-1 items-center">
-            <input type="password" id="configKey2Captcha" placeholder="2Captcha API Key..." style="flex:1;padding:0.5rem 0.75rem;border:1px solid #ccc;border-radius:6px;font-size:0.9rem;font-family:monospace">
-            <button class="btn btn-primary" id="btnGuardarKey2Captcha">Guardar</button>
+          <div class="config-key-fields" id="captchaKeyFields" style="display:none">
+            <div class="flex gap-1 items-center">
+              <input type="password" id="configKey2Captcha" placeholder="2Captcha API Key..." style="flex:1;padding:0.5rem 0.75rem;border:1px solid #ccc;border-radius:6px;font-size:0.9rem;font-family:monospace">
+              <button class="btn btn-primary" id="btnGuardarKey2Captcha">Guardar</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding:0.75rem;background:#f8f9fa;border-radius:6px;margin-bottom:0.75rem">
+          <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem">
+            <label style="font-size:0.9rem;font-weight:500">Modo Headless (navegador oculto):</label>
+            <label class="toggle-switch"><input type="checkbox" id="btnToggleHeadless"><span class="toggle-slider"><span class="toggle-on">ON</span><span class="toggle-off">OFF</span></span></label>
+          </div>
+          <p style="font-size:0.8rem;color:#888">Cuando está OFF, el navegador se muestra visible. Útil para depuración.</p>
+        </div>
+
+        <div style="padding:0.75rem;background:#f3e8ff;border:1px solid #c4b5fd;border-radius:6px;margin-bottom:0.75rem">
+          <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem">
+            <label style="font-size:0.9rem;font-weight:600;color:#5b21b6">🤖 OCR con IA — Fallback automático</label>
+            <label class="toggle-switch"><input type="checkbox" id="btnToggleAiOcr"><span class="toggle-slider"><span class="toggle-on">ON</span><span class="toggle-off">OFF</span></span></label>
+            <span id="aiConfigStatus" style="font-size:0.75rem;color:#888"></span>
+            <span id="omniStatus" style="font-size:0.75rem;margin-left:auto;font-weight:500"></span>
+          </div>
+          <p style="font-size:0.8rem;color:#7c3aed;margin-bottom:0.5rem">Si la extracción primaria falla o devuelve campos vacíos, se usará IA automáticamente.</p>
+          <div class="config-key-fields" id="aiKeyFields" style="display:none">
+            <div style="display:flex;flex-direction:column;gap:0.5rem">
+              <div style="display:flex;gap:0.5rem;align-items:center">
+                <label style="font-size:0.8rem;color:#666;width:80px;flex-shrink:0">URL:</label>
+                <input type="text" id="configOmniUrl" placeholder="http://192.168.1.166:20128/v1" style="flex:1;padding:0.4rem 0.6rem;border:1px solid #c4b5fd;border-radius:4px;font-size:0.85rem;font-family:monospace">
+              </div>
+              <div style="display:flex;gap:0.5rem;align-items:center">
+                <label style="font-size:0.8rem;color:#666;width:80px;flex-shrink:0">API Key:</label>
+                <input type="password" id="configOmniKey" placeholder="sk-..." style="flex:1;padding:0.4rem 0.6rem;border:1px solid #c4b5fd;border-radius:4px;font-size:0.85rem;font-family:monospace">
+              </div>
+              <div style="display:flex;gap:0.5rem;align-items:center">
+                <label style="font-size:0.8rem;color:#666;width:80px;flex-shrink:0">Modelo:</label>
+                <div class="model-search-wrapper" style="flex:1">
+                  <input type="text" id="configOmniModel" class="model-search-input" placeholder="Buscar modelo..." autocomplete="off">
+                  <div class="model-search-results" id="omniModelResults"></div>
+                </div>
+                <button class="btn btn-secondary" id="btnLoadModels" style="padding:0.4rem 0.6rem;font-size:0.8rem;white-space:nowrap">Cargar</button>
+              </div>
+              <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.25rem">
+                <button class="btn btn-primary" id="btnGuardarOmni" style="background:#7c3aed">Guardar</button>
+                <button class="btn btn-secondary" id="btnTestOmni" style="background:#059669;color:#fff">Probar conexión</button>
+                <span id="omniConfigStatus" style="font-size:0.8rem;color:#666"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding:0.75rem;background:#e0f2fe;border:1px solid #7dd3fc;border-radius:6px;margin-bottom:0.75rem">
+          <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem">
+            <label style="font-size:0.9rem;font-weight:600;color:#0369a1">🌐 Google AI (Gemini)</label>
+            <span id="googleConfigStatus" style="font-size:0.75rem;color:#888"></span>
+          </div>
+          <p style="font-size:0.8rem;color:#0284c7;margin-bottom:0.5rem">API Key de Google AI Studio (Gemini). Tokens gratuitos generosos.</p>
+          <div class="config-key-fields" id="googleKeyFields">
+            <div style="display:flex;flex-direction:column;gap:0.5rem">
+              <div style="display:flex;gap:0.5rem;align-items:center">
+                <label style="font-size:0.8rem;color:#666;width:80px;flex-shrink:0">API Key:</label>
+                <input type="password" id="configGoogleKey" placeholder="AIza..." style="flex:1;padding:0.4rem 0.6rem;border:1px solid #7dd3fc;border-radius:4px;font-size:0.85rem;font-family:monospace">
+              </div>
+              <div style="display:flex;gap:0.5rem;align-items:center">
+                <label style="font-size:0.8rem;color:#666;width:80px;flex-shrink:0">Modelo:</label>
+                <input type="text" id="configGoogleModel" placeholder="gemini-2.0-flash" value="gemini-2.0-flash" style="flex:1;padding:0.4rem 0.6rem;border:1px solid #7dd3fc;border-radius:4px;font-size:0.85rem;font-family:monospace">
+              </div>
+              <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.25rem">
+                <button class="btn btn-primary" id="btnGuardarGoogle" style="background:#0284c7">Guardar</button>
+                <button class="btn btn-secondary" id="btnTestGoogle" style="background:#059669;color:#fff">Probar conexión</button>
+                <span id="googleTestStatus" style="font-size:0.8rem;color:#666"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding:0.75rem;background:#fef3c7;border:1px solid #fbbf24;border-radius:6px;margin-bottom:0.75rem">
+          <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem">
+            <label style="font-size:0.9rem;font-weight:600;color:#92400e">⚡ OpenCode AI</label>
+            <span id="opencodeConfigStatus" style="font-size:0.75rem;color:#888"></span>
+          </div>
+          <p style="font-size:0.8rem;color:#b45309;margin-bottom:0.5rem">API Key de OpenCode. Acceso a múltiples modelos (GPT-4, Claude, etc.).</p>
+          <div class="config-key-fields" id="opencodeKeyFields">
+            <div style="display:flex;flex-direction:column;gap:0.5rem">
+              <div style="display:flex;gap:0.5rem;align-items:center">
+                <label style="font-size:0.8rem;color:#666;width:80px;flex-shrink:0">API Key:</label>
+                <input type="password" id="configOpenCodeKey" placeholder="sk-..." style="flex:1;padding:0.4rem 0.6rem;border:1px solid #fbbf24;border-radius:4px;font-size:0.85rem;font-family:monospace">
+              </div>
+              <div style="display:flex;gap:0.5rem;align-items:center">
+                <label style="font-size:0.8rem;color:#666;width:80px;flex-shrink:0">URL:</label>
+                <input type="text" id="configOpenCodeUrl" placeholder="https://api.opencode.ai/v1" value="https://api.opencode.ai/v1" style="flex:1;padding:0.4rem 0.6rem;border:1px solid #fbbf24;border-radius:4px;font-size:0.85rem;font-family:monospace">
+              </div>
+              <div style="display:flex;gap:0.5rem;align-items:center">
+                <label style="font-size:0.8rem;color:#666;width:80px;flex-shrink:0">Modelo:</label>
+                <input type="text" id="configOpenCodeModel" placeholder="gpt-4o" value="gpt-4o" style="flex:1;padding:0.4rem 0.6rem;border:1px solid #fbbf24;border-radius:4px;font-size:0.85rem;font-family:monospace">
+              </div>
+              <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.25rem">
+                <button class="btn btn-primary" id="btnGuardarOpenCode" style="background:#d97706">Guardar</button>
+                <button class="btn btn-secondary" id="btnTestOpenCode" style="background:#059669;color:#fff">Probar conexión</button>
+                <span id="opencodeTestStatus" style="font-size:0.8rem;color:#666"></span>
+              </div>
+            </div>
           </div>
         </div>
 
         <p id="configStatus" style="font-size:0.8rem;margin-top:0.5rem;color:#666"></p>
         <div style="padding:0.75rem;background:#f8f9fa;border-radius:6px;margin-bottom:0.75rem">
           <label style="font-size:0.9rem;font-weight:500;display:block;margin-bottom:0.5rem">Cambiar contraseña</label>
+          <form id="passForm" onsubmit="return false" style="display:contents">
           <div style="display:flex;flex-direction:column;gap:0.5rem">
-            <input type="password" id="currentPassword" placeholder="Contraseña actual" style="padding:0.5rem 0.75rem;border:1px solid #ccc;border-radius:6px;font-size:0.9rem">
-            <input type="password" id="newPassword" placeholder="Nueva contraseña (mín. 6 caracteres)" style="padding:0.5rem 0.75rem;border:1px solid #ccc;border-radius:6px;font-size:0.9rem">
-            <button class="btn btn-primary" id="btnChangePass" style="align-self:flex-start">Actualizar contraseña</button>
+            <input type="password" id="currentPassword" placeholder="Contraseña actual" autocomplete="current-password" style="padding:0.5rem 0.75rem;border:1px solid #ccc;border-radius:6px;font-size:0.9rem">
+            <input type="password" id="newPassword" placeholder="Nueva contraseña (mín. 6 caracteres)" autocomplete="new-password" style="padding:0.5rem 0.75rem;border:1px solid #ccc;border-radius:6px;font-size:0.9rem">
+            <button type="button" class="btn btn-primary" id="btnChangePass" style="align-self:flex-start">Actualizar contraseña</button>
           </div>
+          </form>
           <span id="passStatus" style="font-size:0.8rem;margin-top:0.5rem;color:#666"></span>
         </div>
 
@@ -204,7 +833,90 @@ select.dato-input { cursor:pointer; }
       </div>
     </details>
   </div>
+  </main>
+  <aside class="layout-side">
+<div class="debug-toggle" id="debugToggle" title="Consola de debug" style="display:none">⌘</div>
+  <div class="card" id="debugDockCard">
+    <h2 class="dock-title"><span class="status-dot run"></span>Consola del sistema<button class="btn btn-secondary" id="debugDockToggle" style="padding:0.2rem 0.7rem;font-size:0.72rem;margin-left:auto;text-transform:none">ocultar</button></h2>
+    <div class="debug-console docked" id="debugConsole">
+  <div class="debug-titlebar">
+    <div class="debug-traffic">
+      <span class="btn-close" id="debugClose" title="Cerrar"></span>
+      <span class="btn-minimize" id="debugMinimize" title="Minimizar"></span>
+      <span class="btn-maximize" id="debugMaximize" title="Expandir"></span>
+    </div>
+    <div class="debug-titlebar-text">Consola de Depuración — VCDS</div>
+    <div class="debug-titlebar-right">
+      <button id="debugClear" title="Limpiar">⟳</button>
+    </div>
+  </div>
+  <div class="debug-body" id="debugBody"></div>
+  <div class="debug-foot"><span>líneas <b id="dbgLines" style="color:#d7ff3f">0</b></span><span>errores <b id="dbgErrs" style="color:#f87171">0</b></span><span>⏱ <b id="dbgUp" style="color:#d7ff3f">00:00:00</b></span><span id="dbgClock" style="margin-left:auto"></span></div>
 </div>
+  </div>
+  </aside>
+  </div>
+</div>
+
+<script>
+const debugToggle = document.getElementById('debugToggle');
+const debugConsole = document.getElementById('debugConsole');
+const debugBody = document.getElementById('debugBody');
+const debugClear = document.getElementById('debugClear');
+const debugClose = document.getElementById('debugClose');
+const debugMinimize = document.getElementById('debugMinimize');
+const debugMaximize = document.getElementById('debugMaximize');
+let debugOpen = false;
+let debugMaximized = false;
+
+debugToggle.addEventListener('click', () => {
+  debugOpen = !debugOpen;
+  debugConsole.classList.toggle('open', debugOpen);
+  debugToggle.classList.remove('has-new');
+  if (debugOpen) debugBody.scrollTop = debugBody.scrollHeight;
+});
+
+debugClose.addEventListener('click', () => {
+  debugOpen = false;
+  debugConsole.classList.remove('open');
+});
+
+debugMinimize.addEventListener('click', () => {
+  debugOpen = false;
+  debugConsole.classList.remove('open');
+});
+
+debugMaximize.addEventListener('click', () => {
+  debugMaximized = !debugMaximized;
+  if (debugMaximized) {
+    debugConsole.style.width = '90vw';
+    debugConsole.style.maxHeight = '80vh';
+    debugConsole.style.left = '5vw';
+    debugConsole.style.right = '5vw';
+    debugConsole.style.bottom = '10vh';
+  } else {
+    debugConsole.style.width = '540px';
+    debugConsole.style.maxHeight = '420px';
+    debugConsole.style.left = '';
+    debugConsole.style.right = '20px';
+    debugConsole.style.bottom = '80px';
+  }
+});
+
+debugClear.addEventListener('click', () => {
+  debugBody.innerHTML = '';
+});
+
+function debugLog(msg, level) {
+  const d = document.createElement('div');
+  d.className = 'debug-line' + (level ? ' ' + level : '');
+  const ts = new Date().toLocaleTimeString('es-ES');
+  d.innerHTML = '<span class="ts">[' + ts + ']</span> ' + msg;
+  debugBody.appendChild(d);
+  debugBody.scrollTop = debugBody.scrollHeight;
+  if (!debugOpen) debugToggle.classList.add('has-new');
+}
+</script>
 
 <script>
 const btnLogout = document.getElementById('btnLogout');
@@ -215,9 +927,22 @@ fetch('/api/auth/check').then(r=>r.json()).then(d=>{
   userLabel.textContent = d.username;
 });
 
+if(localStorage.getItem('vcds-dark') !== '0') document.body.classList.add('dark-mode');
+function toggleDarkMode() {
+  document.body.classList.toggle('dark-mode');
+  localStorage.setItem('vcds-dark', document.body.classList.contains('dark-mode') ? '1' : '0');
+}
+
 btnLogout.addEventListener('click', async ()=>{
   await fetch('/api/auth/logout',{method:'POST'});
   window.location.href='/login';
+});
+
+const btnNuevaVerificacion = document.getElementById('btnNuevaVerificacion');
+btnNuevaVerificacion.addEventListener('click', async ()=>{
+  if(currentId && !confirm('¿Seguro? Se perderán los datos actuales.')) return;
+  await fetch('/api/clear-uploads', { method: 'POST' });
+  location.reload();
 });
 
 const dropZone = document.getElementById('dropZone');
@@ -252,6 +977,7 @@ const batchSummary = document.getElementById('batchSummary');
 const btnStopBatch = document.getElementById('btnStopBatch');
 
 let currentId = null;
+let currentDatos = null;
 let pollInterval = null;
 let screenshotInterval = null;
 let visorScale = 1;
@@ -284,6 +1010,7 @@ function onFiles(files) {
 
 let batchItems = [];
 let batchIndex = 0;
+let selectedBatchItem = -1;
 
 function startBatch(files) {
   batchItems = files.map(f => ({
@@ -329,11 +1056,68 @@ function renderBatchQueue() {
     const active = i === batchIndex && item.status !== 'pendiente';
     const cls = item.status === 'pendiente' ? '' : item.status;
     const txt = item.status === 'error' && item.error ? `Error: ${item.error}` : (statusText[item.status] || item.status);
-    return `<div class="batch-item ${cls}" id="batchItem${i}" title="${item.error || ''}">
+    const isSelected = selectedBatchItem === i;
+    const hasDetail = item.resultado || item.status === 'error';
+    const cursorStyle = hasDetail ? 'cursor:pointer' : '';
+    const selectedStyle = isSelected ? 'border-left-width:4px;background:#e0f2fe;box-shadow:inset 0 0 0 1px #93c5fd' : '';
+    let detailHtml = '';
+    if (isSelected && hasDetail) {
+      if (item.resultado) {
+        const r = item.resultado;
+        const iconos = { original: '✅', manipulado: '❌', dudoso: '⚠️' };
+        const colores = { original: '#16a34a', manipulado: '#dc2626', dudoso: '#f59e0b' };
+        const compDatos = r.comparacion_datos;
+        const compTexto = r.comparacion_texto;
+        const camposHtml = compDatos.campos ? Object.entries(compDatos.campos).map(([k, v]) => {
+          const ok = v.coincide;
+          const renderVal = (val) => {
+            if (typeof val === 'boolean') return val ? 'Sí' : 'No';
+            return val || '—';
+          };
+          return `<div class="campo-comp ${ok ? 'ok' : 'fail'}" style="margin:0.25rem 0">
+            <span><strong>${k}:</strong> ${renderVal(v.usuario)} → ${renderVal(v.original)}</span>
+            <span class="badge ${ok ? 'badge-ok' : 'badge-fail'}">${ok ? 'OK' : 'NO COINCIDE'}</span>
+          </div>`;
+        }).join('') : '<p style="color:#999;font-size:0.8rem">No se pudieron comparar</p>';
+        const textoOk = compTexto.coincide;
+        const textoPct = (compTexto.ratio * 100).toFixed(1);
+        detailHtml = `
+        <div class="batch-detail-panel" style="margin-top:0.5rem;padding:0.75rem;border-radius:6px;border:1px solid var(--border);font-size:0.82rem">
+          <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">
+            <span style="font-size:1.2rem">${iconos[r.veredicto]}</span>
+            <strong style="color:${colores[r.veredicto]}">${r.veredicto.toUpperCase()}</strong>
+            <span style="color:var(--text-sub);margin-left:auto;font-size:0.75rem">${r.mensaje || ''}</span>
+          </div>
+          <div style="margin-bottom:0.5rem">${camposHtml}</div>
+          <div class="campo-comp ${textoOk ? 'ok' : 'fail'}" style="margin:0.25rem 0">
+            <span>Texto: <strong>${textoPct}%</strong></span>
+            <span class="badge ${textoOk ? 'badge-ok' : 'badge-fail'}">${textoOk ? 'OK' : 'DIFIERE'}</span>
+          </div>
+          <div style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap">
+            <a href="/api/verify/${item.id}/download-original" class="btn btn-success" target="_blank" style="font-size:0.75rem;padding:0.3rem 0.6rem">Descargar original</a>
+            <a href="/api/verify/${item.id}/download-usuario" class="btn btn-secondary" target="_blank" style="font-size:0.75rem;padding:0.3rem 0.6rem">Descargar usuario</a>
+          </div>
+        </div>`;
+      } else if (item.error) {
+        const errDatos = item.datos;
+        const errIdent = errDatos ? (errDatos.dni || errDatos.nie || '—') : '—';
+        const errName = errDatos ? (errDatos.nombre || '—') : '—';
+        detailHtml = `
+        <div class="batch-detail-panel" style="margin-top:0.5rem;padding:0.75rem;border-radius:6px;font-size:0.82rem">
+          <div style="display:flex;gap:1rem;margin-bottom:0.4rem;flex-wrap:wrap">
+            <span><strong>Nombre:</strong> ${errName}</span>
+            <span><strong>DNI/NIE:</strong> ${errIdent}</span>
+          </div>
+          <div style="color:#dc2626;font-weight:600">Error: ${item.error}</div>
+        </div>`;
+      }
+    }
+    return `<div class="batch-item ${cls} ${hasDetail ? 'clickable' : ''}" id="batchItem${i}" title="${item.error || ''}" style="${cursorStyle}${selectedStyle ? ';' + selectedStyle : ''}" onclick="toggleBatchItemDetail(${i})">
       <span class="batch-icon">${icons[item.status] || '○'}</span>
       <span class="batch-name" title="${item.name}">${item.name}</span>
       <span class="batch-status" style="${item.status === 'error' ? 'color:#dc2626;font-weight:600' : ''}">${txt}</span>
-    </div>`;
+      ${hasDetail ? `<span style="font-size:0.7rem;color:#999;margin-left:0.25rem">${isSelected ? '▲' : '▼'}</span>` : ''}
+    </div>${detailHtml}`;
   }).join('');
 
   const done = batchItems.filter(i => ['completado','omitido','error'].includes(i.status)).length;
@@ -342,13 +1126,27 @@ function renderBatchQueue() {
   batchProgress.textContent = `${done} / ${batchItems.length} archivos procesados`;
 }
 
-async function processBatch() {
-  for (batchIndex = 0; batchIndex < batchItems.length; batchIndex++) {
-    if (batchStop) break;
-    const item = batchItems[batchIndex];
-    if (item.status !== 'pendiente') continue;
+function toggleBatchItemDetail(i) {
+  if (selectedBatchItem === i) {
+    selectedBatchItem = -1;
+  } else {
+    selectedBatchItem = i;
+  }
+  renderBatchQueue();
+}
+
+function getBatchWorkers() {
+  const sel = document.getElementById('batchWorkers');
+  const n = sel ? parseInt(sel.value) || 2 : 2;
+  return Math.min(Math.max(n, 1), 4);
+}
+
+async function processBatchOne(idx) {
+    const item = batchItems[idx];
+    if (item.status !== 'pendiente') return;
 
     item.status = 'extrayendo';
+    debugLog('[' + (idx+1) + '/' + batchItems.length + '] Extrayendo: ' + item.name, 'info');
     renderBatchQueue();
 
     try {
@@ -360,6 +1158,7 @@ async function processBatch() {
       let buffer = '';
       let datos = null;
       let id = null;
+      let aiUpdated = false;
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -370,7 +1169,36 @@ async function processBatch() {
           if (!line.startsWith('data: ')) continue;
           try {
             const msg = JSON.parse(line.slice(6));
-            if (msg.type === 'done') { id = msg.id; datos = msg.datos; }
+            if (msg.type === 'done') {
+              id = msg.id;
+              datos = msg.datos;
+              debugLog('Extracción completada → ID: ' + id, 'success');
+              if (datos) {
+                const campos = [];
+                if (datos.nombre) campos.push('Nombre: ' + datos.nombre);
+                if (datos.dni) campos.push('DNI: ' + datos.dni);
+                if (datos.csv) campos.push('CSV: ' + datos.csv);
+                if (datos.fecha_emision) campos.push('Fecha: ' + datos.fecha_emision);
+                if (datos.no_consta !== undefined) campos.push('No consta: ' + (datos.no_consta ? 'Sí' : 'No'));
+                if (campos.length) debugLog('Datos extraídos: ' + campos.join(' | '), 'info');
+              }
+            }
+            if (msg.type === 'ai_updated') {
+              aiUpdated = true;
+              datos = msg.datos;
+              debugLog('Fallback IA completado, datos actualizados', 'success');
+              if (datos) {
+                const campos = [];
+                if (datos.nombre) campos.push('Nombre: ' + datos.nombre);
+                if (datos.dni) campos.push('DNI: ' + datos.dni);
+                if (datos.csv) campos.push('CSV: ' + datos.csv);
+                if (datos.fecha_emision) campos.push('Fecha: ' + datos.fecha_emision);
+                if (campos.length) debugLog('Datos IA: ' + campos.join(' | '), 'info');
+              }
+            }
+            if (msg.type === 'error') {
+              debugLog('Error en extracción: ' + msg.message, 'error');
+            }
           } catch (e) {}
         }
       }
@@ -378,8 +1206,9 @@ async function processBatch() {
       if (!datos || !id) {
         item.status = 'error';
         item.error = 'Error en la extracción';
+        debugLog('Error: No se pudieron extraer datos de ' + item.name, 'error');
         renderBatchQueue();
-        continue;
+        return;
       }
 
       const falta = !datos.nombre || !datos.dni || !datos.csv || !datos.fecha_emision || datos.no_consta === undefined || datos.no_consta === null;
@@ -387,13 +1216,21 @@ async function processBatch() {
         item.status = 'omitido';
         item.datos = datos;
         item.id = id;
+        const camposFaltantes = [];
+        if (!datos.nombre) camposFaltantes.push('nombre');
+        if (!datos.dni) camposFaltantes.push('DNI');
+        if (!datos.csv) camposFaltantes.push('CSV');
+        if (!datos.fecha_emision) camposFaltantes.push('fecha');
+        if (datos.no_consta === undefined || datos.no_consta === null) camposFaltantes.push('no_consta');
+        debugLog('Omitido: campos faltantes → ' + camposFaltantes.join(', '), 'warn');
         renderBatchQueue();
-        continue;
+        return;
       }
 
       item.id = id;
       item.datos = datos;
       item.status = 'verificando';
+      debugLog('Iniciando verificación en Ministerio...', 'info');
       renderBatchQueue();
 
       const verifyRes = await fetch(`/api/verify/${id}`, { method: 'POST' });
@@ -401,27 +1238,54 @@ async function processBatch() {
         const errData = await verifyRes.json();
         item.status = 'error';
         item.error = errData.detail || 'Error al iniciar verificación';
+        debugLog('Error verificación: ' + item.error, 'error');
         renderBatchQueue();
-        continue;
+        return;
       }
 
+      debugLog('Esperando resultado de verificación...', 'info');
       const result = await waitForVerification(id);
       if (result) {
         item.resultado = result;
         item.status = 'completado';
+        const veredicto = result.veredicto || 'N/A';
+        const color = veredicto === 'manipulado' ? 'error' : veredicto === 'original' ? 'success' : 'warn';
+        debugLog('Veredicto: ' + veredicto.toUpperCase() + ' — ' + item.name, color);
+        renderBatchQueue();
+        showDetailResult(id);
       } else {
         item.status = 'error';
         item.error = 'Timeout o error en verificación';
+        debugLog('Timeout en verificación para ' + item.name, 'error');
+        renderBatchQueue();
       }
-      renderBatchQueue();
     } catch (e) {
       item.status = 'error';
       item.error = e.message || 'Error desconocido';
+      debugLog('Excepción: ' + item.error, 'error');
       renderBatchQueue();
     }
+}
+
+async function processBatch() {
+  debugLog('Iniciando procesamiento de lote: ' + batchItems.length + ' archivos', 'info');
+  const workers = getBatchWorkers();
+  debugLog('Paralelismo: ' + workers + ' hilo(s)', 'info');
+  let cursor = 0;
+  batchIndex = 0;
+  async function worker() {
+    while (true) {
+      if (batchStop) break;
+      const i = cursor++;
+      if (i >= batchItems.length) break;
+      batchIndex = i;
+      await processBatchOne(i);
+    }
   }
+  await Promise.all(Array.from({ length: workers }, worker));
 
   btnStopBatch.style.display = 'none';
+  debugLog('Lote finalizado. Procesados: ' + batchItems.filter(i => i.status === 'completado').length + '/' + batchItems.length, 'info');
   showBatchSummary();
 }
 
@@ -429,29 +1293,54 @@ function waitForVerification(id) {
   return new Promise((resolve) => {
     let polls = 0;
     const maxPolls = 300;
+    let lastLogCount = 0;
+    let lastEstado = '';
+    const item = batchItems.find(i => i.id === id);
+    const tag = item ? item.name : id;
+    debugLog('Iniciando verificación: ' + tag, 'info');
     const interval = setInterval(async () => {
       polls++;
       if (polls > maxPolls || batchStop) {
         clearInterval(interval);
+        debugLog('Timeout verificación (ID: ' + id + ')', 'error');
         resolve(null);
         return;
       }
       try {
         const res = await fetch(`/api/verify/${id}/status`);
+        if (!res.ok) {
+          if (polls % 30 === 1) debugLog('Status HTTP ' + res.status + ' en ' + tag + ' (reintentando...)', 'warn');
+          return;
+        }
         const data = await res.json();
+        const logs = data.logs || [];
+        if (logs.length > lastLogCount) {
+          logs.slice(lastLogCount).forEach(l => debugLog('[' + tag + '] ' + l, 'info'));
+          lastLogCount = logs.length;
+        }
+        if (data.estado && data.estado !== lastEstado) {
+          lastEstado = data.estado;
+          if (data.estado !== 'completo' && data.estado !== 'error') debugLog(tag + ' → ' + data.estado, 'info');
+        }
         if (data.estado === 'completo') {
           clearInterval(interval);
+          debugLog('Verificación completada (ID: ' + id + ')', 'success');
           const rRes = await fetch(`/api/verify/${id}/result`);
           const rData = await rRes.json();
           resolve(rData.resultado || null);
         } else if (data.estado === 'error') {
           clearInterval(interval);
+          debugLog('Error en verificación: ' + (data.mensaje || 'desconocido'), 'error');
           const item = batchItems.find(i => i.id === id);
           if (item) { item.status = 'error'; item.error = data.mensaje; }
           renderBatchQueue();
           resolve(null);
         }
-      } catch (e) {}
+      } catch (e) {
+        if (polls % 30 === 1) {
+          debugLog('Error de red en polling: ' + e.message, 'warn');
+        }
+      }
     }, 1000);
   });
 }
@@ -470,7 +1359,7 @@ function showBatchSummary() {
   if (dudosos) html += `<span>⚠️ <strong>${dudosos}</strong> dudosos</span>`;
   if (omitidos) html += `<span>🔇 <strong>${omitidos}</strong> omitidos</span>`;
   if (errores) html += `<span>❗ <strong>${errores}</strong> errores</span>`;
-  html += `<button class="btn btn-primary" onclick="location.reload()" style="margin-left:auto">Nueva verificación</button>`;
+  html += `<button class="btn btn-primary" onclick="fetch('/api/clear-uploads',{method:'POST'}).then(()=>location.reload())" style="margin-left:auto">Nueva verificación</button>`;
   batchSummary.innerHTML = html;
 
   const results = batchItems.filter(i => i.resultado);
@@ -512,10 +1401,22 @@ async function handleFile(file) {
   `;
   dropZone.style.cursor = 'default';
   const logEl = document.getElementById('processLog');
+  const dzOrig = dropZone.innerHTML;
+  const dzRestore = () => { dropZone.innerHTML = dzOrig; dropZone.style.cursor = 'pointer'; };
   try {
+    debugLog('Subiendo archivo: ' + file.name + ' (' + Math.round(file.size / 1024) + ' KB)', 'info');
     const form = new FormData();
     form.append('file', file);
     const res = await fetch('/api/upload-sse', { method: 'POST', body: form });
+    if (!res.ok) {
+      let detalle = 'HTTP ' + res.status;
+      try { const ej = await res.json(); if (ej.detail) detalle = ej.detail; } catch (e) {}
+      debugLog('Error al subir ' + file.name + ': ' + detalle, 'error');
+      logEl.innerHTML += `<div class="log-line" style="color:#f87171">✗ ${detalle}</div>`;
+      setTimeout(dzRestore, 4000);
+      return;
+    }
+    debugLog('Subida completa, extrayendo datos en servidor...', 'info');
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
@@ -535,20 +1436,39 @@ async function handleFile(file) {
             div.textContent = msg.message;
             logEl.appendChild(div);
             logEl.scrollTop = logEl.scrollHeight;
+            const level = msg.message.includes('Error') ? 'error' : msg.message.includes('IA') ? 'warn' : 'info';
+            debugLog(msg.message, level);
           } else if (msg.type === 'done') {
             currentId = msg.id;
             mostrarDatos(msg.datos);
+            debugLog('Extracción completada: ' + msg.id, 'success');
+            if (msg.ai_fallback) {
+              debugLog('Se usó OCR con IA como fallback — datos complementados', 'warn');
+            }
+          } else if (msg.type === 'ai_updated') {
+            mostrarDatos(msg.datos);
+            debugLog('Fallback IA completado — datos actualizados', 'success');
+          } else if (msg.type === 'error') {
+            debugLog('Error en extracción de ' + file.name + ': ' + msg.message, 'error');
+            const div = document.createElement('div');
+            div.className = 'log-line';
+            div.style.color = '#f87171';
+            div.textContent = '✗ ' + msg.message;
+            logEl.appendChild(div);
+            logEl.scrollTop = logEl.scrollHeight;
+            setTimeout(dzRestore, 5000);
           }
         } catch (e) {}
       }
     }
   } catch (e) {
-    alert('Error de conexion');
-    location.reload();
+    debugLog('Error de conexión al subir ' + file.name + ': ' + e.message, 'error');
+    setTimeout(dzRestore, 4000);
   }
 }
 
 function mostrarDatos(datos) {
+  currentDatos = datos;
   const campos = [
     { label: 'Nombre', key: 'nombre', type: 'text' },
     { label: 'DNI / NIE', key: 'dni', type: 'text' },
@@ -615,12 +1535,14 @@ btnReextractOcr.addEventListener('click', async () => {
           const msg = JSON.parse(line.slice(6));
           if (msg.type === 'log') {
             ocrStatusMsg.textContent = msg.message;
+            debugLog(msg.message, 'info');
           } else if (msg.type === 'done') {
             mostrarDatos(msg.datos);
             ocrStatus.classList.add('hidden');
             btnReextractOcr.disabled = false;
             btnReextractOcr.classList.remove('processing');
             btnReextractOcr.textContent = 'Reintentar con OCR';
+            debugLog('OCR re-extracción completada', 'success');
           }
         } catch (e) {}
       }
@@ -718,6 +1640,7 @@ btnChromeOcr.addEventListener('click', async () => {
   }, 3000);
 
   try {
+    debugLog('Iniciando Chrome OCR...', 'info');
     const res = await fetch(`/api/chrome-ocr/${currentId}`, { method: 'POST' });
     const data = await res.json();
     clearInterval(msgInterval);
@@ -749,6 +1672,375 @@ btnChromeOcr.addEventListener('click', async () => {
   }
 });
 
+const btnCompareOcr = document.getElementById('btnCompareOcr');
+const compareCard = document.getElementById('compareCard');
+const compareContent = document.getElementById('compareContent');
+const btnVerificarDesdeCompare = document.getElementById('btnVerificarDesdeCompare');
+const btnVolverDatos = document.getElementById('btnVolverDatos');
+
+btnCompareOcr.addEventListener('click', async () => {
+  if (!currentId) return;
+  if (!confirm('Comparar extracción primaria con Chrome OCR? Se abrirá Chromium con el PDF.')) return;
+
+  btnCompareOcr.disabled = true;
+  btnCompareOcr.classList.add('processing');
+  btnCompareOcr.textContent = 'Comparando...';
+
+  datosCard.classList.add('hidden');
+  compareCard.classList.add('hidden');
+  visorCard.classList.remove('hidden');
+  resultadoCard.classList.add('hidden');
+  loadingState.style.display = 'block';
+  visorContent.style.display = 'none';
+  btnListo.disabled = true;
+  btnListo.textContent = 'Iniciando comparación OCR...';
+
+  let msgIdx = 0;
+  const msgs = ['Abriendo Chromium...', 'Extrayendo texto con OCR...', 'Comparando con extracción primaria...', 'Generando reporte...'];
+  const msgInterval = setInterval(() => {
+    msgIdx = Math.min(msgIdx + 1, msgs.length - 1);
+    loadingMsg.textContent = msgs[msgIdx];
+  }, 3000);
+
+  try {
+    debugLog('Iniciando comparación OCR...', 'info');
+    const res = await fetch(`/api/chrome-ocr-compare/${currentId}`, { method: 'POST' });
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let compareResult = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const msg = JSON.parse(line.slice(6));
+          if (msg.type === 'log') {
+            debugLog(msg.message, 'info');
+          } else if (msg.type === 'done') {
+            compareResult = msg;
+            debugLog('Comparación completada: ' + (msg.veredicto_pre || ''), 'success');
+          } else if (msg.type === 'error') {
+            debugLog('Error: ' + msg.mensaje, 'error');
+            clearInterval(msgInterval);
+            loadingState.style.display = 'none';
+            alert('Error: ' + msg.mensaje);
+            btnCompareOcr.disabled = false;
+            btnCompareOcr.classList.remove('processing');
+            btnCompareOcr.textContent = 'Comparar OCR';
+            return;
+          }
+        } catch (e) {}
+      }
+    }
+
+    clearInterval(msgInterval);
+    loadingState.style.display = 'none';
+    visorContent.style.display = 'none';
+    visorCard.classList.add('hidden');
+    btnCompareOcr.disabled = false;
+    btnCompareOcr.classList.remove('processing');
+    btnCompareOcr.textContent = 'Comparar OCR';
+
+    if (compareResult) {
+      mostrarComparacion(compareResult);
+    }
+  } catch (e) {
+    clearInterval(msgInterval);
+    loadingState.style.display = 'none';
+    visorContent.style.display = 'none';
+    alert('Error en la comparación OCR');
+    btnCompareOcr.disabled = false;
+    btnCompareOcr.classList.remove('processing');
+    btnCompareOcr.textContent = 'Comparar OCR';
+  }
+});
+
+function mostrarComparacion(result) {
+  const comps = result.comparaciones || {};
+  const veredicto = result.veredicto_pre;
+  const datosOcr = result.datos_ocr || {};
+
+  let veredictoHtml = '';
+  if (veredicto === 'consistente') {
+    veredictoHtml = '<div class="veredicto-pre ok">Todos los campos coinciden entre extracción primaria y Chrome OCR</div>';
+  } else if (veredicto === 'csv_difierente') {
+    veredictoHtml = '<div class="veredicto-pre error">El CSV difiere entre extracción primaria y Chrome OCR — revisar antes de verificar</div>';
+  } else {
+    veredictoHtml = '<div class="veredicto-pre warn">Algunos campos difieren — revisar antes de verificar</div>';
+  }
+
+  const campos = ['csv', 'dni', 'nombre', 'fecha_emision'];
+  const labels = { csv: 'CSV', dni: 'DNI / NIE', nombre: 'Nombre', fecha_emision: 'Fecha de emisión' };
+  const camposHtml = campos.map(k => {
+    const c = comps[k];
+    if (!c) return '';
+    const ok = c.coincide;
+    const badge = ok ? '<span class="badge badge-ok">COINCIDE</span>' : '<span class="badge badge-fail">DIFIERE</span>';
+    const detail = diffHtml(k, c.primario, c.ocr, c.diff_chars);
+    return `<div class="campo-comp ${ok ? 'ok' : 'fail'}">
+      <div>
+        <strong>${labels[k]}</strong>
+        <div class="campo-detalle">${detail}</div>
+      </div>
+      ${badge}
+    </div>`;
+  }).join('');
+
+  compareContent.innerHTML = `
+    ${veredictoHtml}
+    <div style="margin-bottom:0.75rem;padding:0.75rem;background:#f8f9fa;border-radius:6px;font-size:0.85rem">
+      <strong>Datos extraídos por Chrome OCR:</strong><br>
+      CSV: ${datosOcr.csv || '(no encontrado)'}<br>
+      DNI: ${datosOcr.dni || '(no encontrado)'}<br>
+      Nombre: ${datosOcr.nombre || '(no encontrado)'}<br>
+      Fecha: ${datosOcr.fecha_emision || '(no encontrado)'}
+    </div>
+    <h3 style="font-size:0.9rem;color:#666;margin-bottom:0.5rem">Comparación por campo</h3>
+    ${camposHtml}
+  `;
+
+  compareCard.classList.remove('hidden');
+  window.scrollTo({ top: compareCard.offsetTop - 20, behavior: 'smooth' });
+}
+
+btnVerificarDesdeCompare.addEventListener('click', () => {
+  compareCard.classList.add('hidden');
+  iniciarVerificacion();
+});
+
+btnVolverDatos.addEventListener('click', () => {
+  compareCard.classList.add('hidden');
+  mostrarDatos(currentDatos || {});
+});
+
+const btnAiOcr = document.getElementById('btnAiOcr');
+const aiOcrCard = document.getElementById('aiOcrCard');
+const aiOcrContent = document.getElementById('aiOcrContent');
+const aiModelLabel = document.getElementById('aiModelLabel');
+const btnAiOcrApply = document.getElementById('btnAiOcrApply');
+const btnAiOcrCompare = document.getElementById('btnAiOcrCompare');
+const btnAiOcrVolver = document.getElementById('btnAiOcrVolver');
+const aiOcrCompareCard = document.getElementById('aiOcrCompareCard');
+const aiOcrCompareContent = document.getElementById('aiOcrCompareContent');
+const btnVerificarDesdeAiCompare = document.getElementById('btnVerificarDesdeAiCompare');
+const btnVolverAiOcr = document.getElementById('btnVolverAiOcr');
+
+btnAiOcr.addEventListener('click', async () => {
+  if (!currentId) return;
+
+  btnAiOcr.disabled = true;
+  btnAiOcr.classList.add('processing');
+  btnAiOcr.textContent = 'Procesando con IA...';
+  debugLog('Iniciando OCR con IA...', 'info');
+
+  try {
+    const res = await fetch(`/api/ai-ocr/${currentId}`, { method: 'POST' });
+    const raw = await res.text();
+    let data = null;
+    try {
+      data = JSON.parse(raw);
+    } catch (e) {
+      debugLog('Error AI OCR: respuesta no JSON (HTTP ' + res.status + ')', 'error');
+      alert('Respuesta no válida del servidor (HTTP ' + res.status + '). Si usas el túnel vcds.minabo.lol, entra por red local http://192.168.1.215:4776 y reintenta.');
+      btnAiOcr.disabled = false;
+      btnAiOcr.classList.remove('processing');
+      btnAiOcr.textContent = 'OCR con IA';
+      return;
+    }
+
+    if (!res.ok || !data.ok) {
+      alert(data.detail || data.mensaje || 'Error al procesar con IA');
+      debugLog('Error AI OCR: ' + (data.detail || data.mensaje || 'Error'), 'error');
+      btnAiOcr.disabled = false;
+      btnAiOcr.classList.remove('processing');
+      btnAiOcr.textContent = 'OCR con IA';
+      return;
+    }
+
+    debugLog('OCR con IA completado. Modelo: ' + (data.model || 'auto'), 'success');
+    if (data.provider) debugLog('Provider: ' + data.provider, 'info');
+
+    const datos = data.datos;
+    aiModelLabel.textContent = data.model || 'auto';
+
+    let html = '<div style="margin-bottom:0.75rem;padding:0.75rem;background:#f8f9fa;border-radius:6px;font-size:0.85rem">';
+    html += '<strong>Datos extraídos por IA:</strong><br>';
+    html += `CSV: ${datos.csv || '(no encontrado)'}<br>`;
+    html += `DNI: ${datos.dni || '(no encontrado)'}<br>`;
+    html += `Nombre: ${datos.nombre || '(no encontrado)'}<br>`;
+    html += `Fecha: ${datos.fecha_emision || '(no encontrado)'}<br>`;
+    html += `No consta: ${datos.no_consta ? 'Sí' : 'No'}`;
+    html += '</div>';
+
+    const campos = [
+      { key: 'csv', label: 'CSV' },
+      { key: 'dni', label: 'DNI / NIE' },
+      { key: 'nombre', label: 'Nombre' },
+      { key: 'fecha_emision', label: 'Fecha de emisión' },
+      { key: 'no_consta', label: 'No consta' },
+    ];
+
+    html += '<div style="margin-top:0.5rem">';
+    for (const c of campos) {
+      const val = datos[c.key];
+      const primario = currentDatos ? currentDatos[c.key] : null;
+      const coincide = c.key === 'no_consta'
+        ? (val === primario)
+        : (val || '').toString().toUpperCase() === (primario || '').toString().toUpperCase();
+      const badge = val ? (coincide ? '<span class="badge badge-ok">COINCIDE</span>' : '<span class="badge badge-fail">DIFIERE</span>') : '<span class="badge" style="background:#f3f4f6;color:#666">sin dato</span>';
+      html += `<div class="campo-comp ${coincide && val ? 'ok' : (val && !coincide ? 'fail' : '')}">
+        <span><strong>${c.label}:</strong> ${val || '—'} ${primario ? '<span style="color:#999">(primario: ' + primario + ')</span>' : ''}</span>
+        ${badge}
+      </div>`;
+    }
+    html += '</div>';
+
+    aiOcrContent.innerHTML = html;
+    datosCard.classList.add('hidden');
+    aiOcrCard.classList.remove('hidden');
+    window.scrollTo({ top: aiOcrCard.offsetTop - 20, behavior: 'smooth' });
+
+  } catch (e) {
+    debugLog('Error en AI OCR: ' + e.message, 'error');
+    alert('Error al conectar con el servidor de IA');
+  } finally {
+    btnAiOcr.disabled = false;
+    btnAiOcr.classList.remove('processing');
+    btnAiOcr.textContent = 'OCR con IA';
+  }
+});
+
+btnAiOcrApply.addEventListener('click', async () => {
+  if (!currentId) return;
+  try {
+    const res = await fetch(`/api/ai-ocr-apply/${currentId}`, { method: 'POST' });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      currentDatos = data.datos;
+      mostrarDatos(data.datos);
+      aiOcrCard.classList.add('hidden');
+      datosCard.classList.remove('hidden');
+      debugLog('Datos de IA aplicados correctamente', 'success');
+    }
+  } catch (e) {
+    alert('Error al aplicar datos');
+  }
+});
+
+btnAiOcrCompare.addEventListener('click', async () => {
+  if (!currentId) return;
+  try {
+    const res = await fetch(`/api/ai-ocr-compare/${currentId}`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      alert(data.detail || 'Error al comparar');
+      return;
+    }
+    mostrarComparacionAi(data);
+  } catch (e) {
+    alert('Error al comparar');
+  }
+});
+
+btnAiOcrVolver.addEventListener('click', () => {
+  aiOcrCard.classList.add('hidden');
+  mostrarDatos(currentDatos || {});
+});
+
+function diffHtml(campo, valPrim, valIa, diffChars) {
+  if (!diffChars || diffChars.length === 0 || !valPrim || !valIa) {
+    const prim = valPrim != null ? valPrim : '(vacío)';
+    const ia = valIa != null ? valIa : '(vacío)';
+    return `<span style="color:#888">Primario:</span> ${prim} <span style="color:#888;margin:0 0.3rem">→</span> <span style="color:#888">IA:</span> ${ia}`;
+  }
+  const s1 = valPrim.trim().toUpperCase();
+  const s2 = valIa.trim().toUpperCase();
+  let html1 = '', html2 = '';
+  let p1 = 0, p2 = 0;
+  for (const d of diffChars) {
+    while (p1 < d.pos && p1 < s1.length) { html1 += `<span>${s1[p1]}</span>`; p1++; }
+    while (p2 < d.pos && p2 < s2.length) { html2 += `<span>${s2[p2]}</span>`; p2++; }
+    html1 += `<span style="color:#dc2626;font-weight:700;text-decoration:underline;text-decoration-color:#dc2626">${d.primario || '∅'}</span>`;
+    html2 += `<span style="color:#dc2626;font-weight:700;text-decoration:underline;text-decoration-color:#dc2626">${d.ia || '∅'}</span>`;
+    p1 = d.pos + 1;
+    p2 = d.pos + 1;
+  }
+  while (p1 < s1.length) { html1 += `<span>${s1[p1]}</span>`; p1++; }
+  while (p2 < s2.length) { html2 += `<span>${s2[p2]}</span>`; p2++; }
+  return `<span style="color:#888">Primario:</span> <span style="background:#fef2f2;padding:0.1rem 0.3rem;border-radius:3px">${html1}</span> <span style="color:#888;margin:0 0.3rem">→</span> <span style="color:#888">IA:</span> <span style="background:#f0fdf4;padding:0.1rem 0.3rem;border-radius:3px">${html2}</span>`;
+}
+
+function mostrarComparacionAi(data) {
+  const comps = data.comparaciones || {};
+  const veredicto = data.veredicto;
+  const datosIa = data.datos_ia || {};
+
+  let veredictoHtml = '';
+  if (veredicto === 'consistente') {
+    veredictoHtml = '<div class="veredicto-pre ok">Todos los campos coinciden entre extracción primaria y OCR con IA</div>';
+  } else if (veredicto === 'csv_difierente') {
+    veredictoHtml = '<div class="veredicto-pre error">El CSV difiere entre extracción primaria y OCR con IA — revisar antes de verificar</div>';
+  } else {
+    veredictoHtml = '<div class="veredicto-pre warn">Algunos campos difieren — revisar antes de verificar</div>';
+  }
+
+  const campos = ['csv', 'dni', 'nombre', 'fecha_emision', 'no_consta'];
+  const labels = { csv: 'CSV', dni: 'DNI / NIE', nombre: 'Nombre', fecha_emision: 'Fecha de emisión', no_consta: 'No consta' };
+  const camposHtml = campos.map(k => {
+    const c = comps[k];
+    if (!c) return '';
+    const ok = c.coincide;
+    const badge = ok ? '<span class="badge badge-ok">COINCIDE</span>' : '<span class="badge badge-fail">DIFIERE</span>';
+    const detail = diffHtml(k, c.primario, c.ia, c.diff_chars);
+    return `<div class="campo-comp ${ok ? 'ok' : 'fail'}">
+      <div>
+        <strong>${labels[k]}</strong>
+        <div class="campo-detalle">${detail}</div>
+      </div>
+      ${badge}
+    </div>`;
+  }).join('');
+
+  const hasDiff = veredicto !== 'consistente';
+  const pdfBtn = hasDiff ? `<button class="btn btn-secondary" onclick="mostrarPdfVisor()" style="font-size:0.85rem">📄 Ver PDF original</button>` : '';
+
+  aiOcrCompareContent.innerHTML = `
+    ${veredictoHtml}
+    <div style="margin-bottom:0.75rem;padding:0.75rem;background:#f8f9fa;border-radius:6px;font-size:0.85rem">
+      <strong>Datos extraídos por IA:</strong> ${data.model || 'auto'}<br>
+      CSV: ${datosIa.csv || '(no encontrado)'}<br>
+      DNI: ${datosIa.dni || '(no encontrado)'}<br>
+      Nombre: ${datosIa.nombre || '(no encontrado)'}<br>
+      Fecha: ${datosIa.fecha_emision || '(no encontrado)'}
+    </div>
+    <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;flex-wrap:wrap">
+      ${pdfBtn}
+    </div>
+    <h3 style="font-size:0.9rem;color:#666;margin-bottom:0.5rem">Comparación por campo</h3>
+    ${camposHtml}
+  `;
+
+  aiOcrCard.classList.add('hidden');
+  aiOcrCompareCard.classList.remove('hidden');
+  window.scrollTo({ top: aiOcrCompareCard.offsetTop - 20, behavior: 'smooth' });
+}
+
+btnVerificarDesdeAiCompare.addEventListener('click', () => {
+  aiOcrCompareCard.classList.add('hidden');
+  iniciarVerificacion();
+});
+
+btnVolverAiOcr.addEventListener('click', () => {
+  aiOcrCompareCard.classList.add('hidden');
+  aiOcrCard.classList.remove('hidden');
+});
+
 async function iniciarVerificacion() {
   btnVerificar.disabled = true;
   btnVerificar.textContent = 'Guardando cambios...';
@@ -775,8 +2067,8 @@ async function iniciarVerificacion() {
   resultadoCard.classList.add('hidden');
   loadingState.style.display = 'block';
   visorContent.style.display = 'none';
+  btnListo.style.display = 'none';
   btnListo.disabled = true;
-  btnListo.textContent = 'Esperando descarga automática...';
 
   let msgIdx = 0;
   const msgs = useScrapedo
@@ -789,6 +2081,7 @@ async function iniciarVerificacion() {
     loadingMsg.textContent = msgs[msgIdx];
   }, 3000);
 
+  debugLog('Iniciando verificación en Ministerio...', 'info');
   const res = await fetch(`/api/verify/${currentId}`, { method: 'POST' });
   const data = await res.json();
   clearInterval(msgInterval);
@@ -805,38 +2098,49 @@ async function iniciarVerificacion() {
 
 function pollStatus() {
   if (pollInterval) clearInterval(pollInterval);
+  let lastEstado = '';
   pollInterval = setInterval(async () => {
     const res = await fetch(`/api/verify/${currentId}/status`);
     const data = await res.json();
     const estado = data.estado;
+    if (estado !== lastEstado) {
+      debugLog('Estado: ' + estado, estado === 'error' ? 'error' : 'info');
+      lastEstado = estado;
+    }
     if (estado === 'completo') {
       clearInterval(pollInterval);
       clearInterval(screenshotInterval);
+      loadingMsg.textContent = '✅ Verificación completada';
+      loadingState.style.display = 'none';
+      btnListo.style.display = 'inline-block';
       btnListo.textContent = 'Verificación completada';
       btnListo.disabled = false;
+      debugLog('Verificación completada', 'success');
       cargarResultado();
     } else if (estado === 'error') {
       clearInterval(pollInterval);
       clearInterval(screenshotInterval);
+      loadingMsg.textContent = '❌ Error: ' + data.mensaje;
       loadingState.style.display = 'none';
       visorContent.style.display = 'none';
+      btnListo.style.display = 'inline-block';
       btnListo.textContent = 'Error: ' + data.mensaje;
+      debugLog('Error: ' + data.mensaje, 'error');
       alert('Error: ' + data.mensaje);
     } else if (estado === 'resolviendo_captcha') {
       const logs = (data.logs || []).slice(-8).join('\n');
-      btnListo.textContent = 'Resolviendo captcha con2Captcha...';
+      loadingMsg.textContent = 'Resolviendo captcha con2Captcha...';
       if (logs) {
-        btnListo.textContent += '\n' + logs.split('\n').pop();
+        loadingMsg.textContent += ' — ' + logs.split('\n').pop();
       }
     } else if (estado === 'esperando_captcha') {
-      if (loadingState.style.display !== 'none') {
-        loadingState.style.display = 'none';
+      if (visorContent.style.display === 'none') {
         visorContent.style.display = 'block';
       }
       const logs = (data.logs || []).slice(-5).join('\n');
-      btnListo.textContent = 'Resuelve el captcha en el visor de arriba';
+      loadingMsg.textContent = 'Resuelve el captcha en el visor de abajo';
       if (logs) {
-        btnListo.textContent += '\n' + logs.split('\n').pop();
+        loadingMsg.textContent += ' — ' + logs.split('\n').pop();
       }
     }
   }, 1000);
@@ -849,13 +2153,12 @@ function startScreenshot() {
       const res = await fetch(`/api/verify/${currentId}/screenshot`);
       if (!res.ok) return;
       const data = await res.json();
-      if (data.imagen) {
-        visorImg.src = data.imagen;
-        visorLoading.style.display = 'none';
-        if (loadingState.style.display !== 'none') {
-          loadingState.style.display = 'none';
-          visorContent.style.display = 'block';
-        }
+        if (data.imagen) {
+          visorImg.src = data.imagen;
+          visorLoading.style.display = 'none';
+          if (loadingState.style.display !== 'none') {
+            visorContent.style.display = 'block';
+          }
       }
     } catch (e) {}
   }
@@ -968,8 +2271,9 @@ btnRestart.addEventListener('click', async () => {
   btnRestart.textContent = 'Reiniciando...';
   loadingState.style.display = 'block';
   visorContent.style.display = 'none';
+  btnListo.style.display = 'none';
   btnListo.disabled = true;
-  btnListo.textContent = 'Reiniciando navegador...';
+  loadingMsg.textContent = 'Reiniciando navegador...';
   try {
     await fetch(`/api/verify/${currentId}/restart`, { method: 'POST' });
   } catch (e) {}
@@ -988,37 +2292,114 @@ const btnToggleExt = document.getElementById('btnToggleExt');
 const btnOpenPopup = document.getElementById('btnOpenPopup');
 const btnToggleScrape = document.getElementById('btnToggleScrape');
 const btnToggle2Captcha = document.getElementById('btnToggle2Captcha');
+const btnToggleHeadless = document.getElementById('btnToggleHeadless');
 
 let extensionEnabled = false;
 let useScrapedo = false;
 let captcha2cEnabled = false;
+let headlessMode = false;
+let aiOcrEnabled = false;
+let hasExtKey = false;
+let hasScrapeToken = false;
+let hasCaptchaKey = false;
+let hasOmniKey = false;
+let hasGoogleKey = false;
+let hasOpenCodeKey = false;
 
 function updateExtUI() {
-  btnToggleExt.textContent = extensionEnabled ? 'ON' : 'OFF';
-  btnToggleExt.style.background = extensionEnabled ? '#16a34a' : '#dc2626';
-  btnToggleExt.style.color = '#fff';
+  btnToggleExt.checked = extensionEnabled;
   btnOpenPopup.style.display = extensionEnabled ? 'inline-block' : 'none';
+  document.getElementById('extKeyFields').style.display = extensionEnabled ? 'block' : 'none';
+  document.getElementById('extConfigStatus').textContent = hasExtKey ? (extensionEnabled ? '✓ Configurado' : '○ Configurado') : '○ Sin configurar';
+  document.getElementById('extConfigStatus').style.color = hasExtKey ? '#16a34a' : '#999';
 }
 
 function updateScrapeUI() {
-  btnToggleScrape.textContent = useScrapedo ? 'ON' : 'OFF';
-  btnToggleScrape.style.background = useScrapedo ? '#16a34a' : '#dc2626';
-  btnToggleScrape.style.color = '#fff';
+  btnToggleScrape.checked = useScrapedo;
+  document.getElementById('scrapeKeyFields').style.display = useScrapedo ? 'block' : 'none';
+  document.getElementById('scrapeConfigStatus').textContent = hasScrapeToken ? (useScrapedo ? '✓ Configurado' : '○ Configurado') : '○ Sin configurar';
+  document.getElementById('scrapeConfigStatus').style.color = hasScrapeToken ? '#16a34a' : '#999';
 }
 
 function update2CaptchaUI() {
-  btnToggle2Captcha.textContent = captcha2cEnabled ? 'ON' : 'OFF';
-  btnToggle2Captcha.style.background = captcha2cEnabled ? '#16a34a' : '#dc2626';
-  btnToggle2Captcha.style.color = '#fff';
+  btnToggle2Captcha.checked = captcha2cEnabled;
+  document.getElementById('captchaKeyFields').style.display = captcha2cEnabled ? 'block' : 'none';
+  document.getElementById('captchaConfigStatus').textContent = hasCaptchaKey ? (captcha2cEnabled ? '✓ Configurado' : '○ Configurado') : '○ Sin configurar';
+  document.getElementById('captchaConfigStatus').style.color = hasCaptchaKey ? '#16a34a' : '#999';
+  if (hasCaptchaKey) fetchCaptchaBalance();
+}
+
+async function fetchCaptchaBalance() {
+  try {
+    const res = await fetch('/api/config/captcha-balance');
+    const data = await res.json();
+    const el = document.getElementById('captchaBalance');
+    if (data.balance !== null) {
+      el.textContent = 'Saldo: $' + data.balance.toFixed(4);
+      el.style.color = data.balance < 1 ? '#dc2626' : '#16a34a';
+    } else {
+      el.textContent = data.error || '';
+      el.style.color = '#999';
+    }
+  } catch (e) {}
+}
+
+function updateHeadlessUI() {
+  btnToggleHeadless.checked = headlessMode;
+}
+
+function updateAiOcrUI() {
+  btnToggleAiOcr.checked = aiOcrEnabled;
+  document.getElementById('aiKeyFields').style.display = aiOcrEnabled ? 'block' : 'none';
+  document.getElementById('aiConfigStatus').textContent = hasOmniKey ? (aiOcrEnabled ? '✓ Configurado' : '○ Configurado') : '○ Sin configurar';
+  document.getElementById('aiConfigStatus').style.color = hasOmniKey ? '#16a34a' : '#999';
+  if (hasOmniKey) fetchOmniStatus();
+}
+
+async function fetchOmniStatus() {
+  try {
+    const res = await fetch('/api/config/omniroute/status');
+    const data = await res.json();
+    const el = document.getElementById('omniStatus');
+    if (data.ok) {
+      el.textContent = `Online (${data.models} modelos)`;
+      el.style.color = '#16a34a';
+    } else {
+      el.textContent = data.error || 'Offline';
+      el.style.color = '#dc2626';
+    }
+  } catch (e) {}
+}
+
+function updateGoogleUI() {
+  document.getElementById('googleConfigStatus').textContent = hasGoogleKey ? '✓ Configurado' : '○ Sin configurar';
+  document.getElementById('googleConfigStatus').style.color = hasGoogleKey ? '#16a34a' : '#999';
+}
+
+function updateOpenCodeUI() {
+  document.getElementById('opencodeConfigStatus').textContent = hasOpenCodeKey ? '✓ Configurado' : '○ Sin configurar';
+  document.getElementById('opencodeConfigStatus').style.color = hasOpenCodeKey ? '#16a34a' : '#999';
 }
 
 fetch('/api/config/full').then(r => r.json()).then(data => {
   extensionEnabled = data.extension_enabled;
   useScrapedo = data.use_scrapedo;
   captcha2cEnabled = data.captcha_2captcha_enabled || false;
+  headlessMode = data.headless_mode || false;
+  aiOcrEnabled = data.ai_ocr_fallback_enabled || false;
+  hasExtKey = data.has_ext_key || false;
+  hasScrapeToken = data.has_scrape_token || false;
+  hasCaptchaKey = data.has_key || false;
+  hasOmniKey = data.has_omni_key || false;
+  hasGoogleKey = data.has_google_key || false;
+  hasOpenCodeKey = data.has_opencode_key || false;
   updateExtUI();
   updateScrapeUI();
   update2CaptchaUI();
+  updateHeadlessUI();
+  updateAiOcrUI();
+  updateGoogleUI();
+  updateOpenCodeUI();
   if (data.version) {
     document.getElementById('appVersion').textContent = 'v' + data.version;
   }
@@ -1028,45 +2409,51 @@ fetch('/api/config/full').then(r => r.json()).then(data => {
   }
 });
 
-btnToggleExt.addEventListener('click', async () => {
-  btnToggleExt.disabled = true;
-  extensionEnabled = !extensionEnabled;
+btnToggleExt.addEventListener('change', async () => {
+  extensionEnabled = btnToggleExt.checked;
   updateExtUI();
   await fetch('/api/config', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ extension_enabled: extensionEnabled }),
   });
-  btnToggleExt.disabled = false;
   configStatus.textContent = extensionEnabled ? 'Extensión activada (se aplicará en la siguiente verificación)' : 'Extensión desactivada (se aplicará en la siguiente verificación)';
   configStatus.style.color = '#2563eb';
 });
 
-btnToggleScrape.addEventListener('click', async () => {
-  btnToggleScrape.disabled = true;
-  useScrapedo = !useScrapedo;
+btnToggleScrape.addEventListener('change', async () => {
+  useScrapedo = btnToggleScrape.checked;
   updateScrapeUI();
   await fetch('/api/config', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ use_scrapedo: useScrapedo }),
   });
-  btnToggleScrape.disabled = false;
   configStatus.textContent = useScrapedo ? 'Scrape.do activado (IP rotativa + anti-bot)' : 'Scrape.do desactivado';
   configStatus.style.color = '#2563eb';
 });
 
-btnToggle2Captcha.addEventListener('click', async () => {
-  btnToggle2Captcha.disabled = true;
-  captcha2cEnabled = !captcha2cEnabled;
+btnToggle2Captcha.addEventListener('change', async () => {
+  captcha2cEnabled = btnToggle2Captcha.checked;
   update2CaptchaUI();
   await fetch('/api/config', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ captcha_2captcha_enabled: captcha2cEnabled }),
   });
-  btnToggle2Captcha.disabled = false;
   configStatus.textContent = captcha2cEnabled ? '2Captcha activado (resolución automática de captcha)' : '2Captcha desactivado (captcha manual)';
+  configStatus.style.color = '#2563eb';
+});
+
+btnToggleHeadless.addEventListener('change', async () => {
+  headlessMode = btnToggleHeadless.checked;
+  updateHeadlessUI();
+  await fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ headless_mode: headlessMode }),
+  });
+  configStatus.textContent = headlessMode ? 'Modo headless activado (navegador oculto)' : 'Modo headless desactivado (navegador visible)';
   configStatus.style.color = '#2563eb';
 });
 
@@ -1202,6 +2589,630 @@ btnClearUploads.addEventListener('click', async () => {
   btnClearUploads.textContent = 'Limpiar uploads';
 });
 
+const btnStartImport = document.getElementById('btnStartImport');
+const btnStopImport = document.getElementById('btnStopImport');
+const btnVerifyImported = document.getElementById('btnVerifyImported');
+const importUser = document.getElementById('importUser');
+const importPass = document.getElementById('importPass');
+const importMaxDocs = document.getElementById('importMaxDocs');
+const importHeadless = document.getElementById('importHeadless');
+const importProgressBar = document.getElementById('importProgressBar');
+const importProgressText = document.getElementById('importProgressText');
+const importProgressPct = document.getElementById('importProgressPct');
+const importProgressFill = document.getElementById('importProgressFill');
+const importDownloaded = document.getElementById('importDownloaded');
+const importErrors = document.getElementById('importErrors');
+const importLogs = document.getElementById('importLogs');
+const importDocsList = document.getElementById('importDocsList');
+const importDocsCount = document.getElementById('importDocsCount');
+const importDocsContainer = document.getElementById('importDocsContainer');
+
+let importPollInterval = null;
+
+btnStartImport.addEventListener('click', async () => {
+  const user = importUser.value.trim();
+  const pass = importPass.value.trim();
+  if (!user || !pass) {
+    alert('Introduce usuario y contraseña');
+    return;
+  }
+  btnStartImport.disabled = true;
+  btnStartImport.textContent = 'Iniciando...';
+  try {
+    const res = await fetch('/api/import/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: user,
+        password: pass,
+        max_docs: parseInt(importMaxDocs.value) || 50,
+        headless: importHeadless.checked,
+      }),
+    });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      btnStartImport.style.display = 'none';
+      btnStopImport.style.display = 'inline-block';
+      importProgressBar.style.display = 'block';
+      importLogs.style.display = 'block';
+      importLogs.innerHTML = '';
+      debugLog('Importación iniciada', 'info');
+      startImportPoll();
+    } else {
+      alert(data.detail || 'Error al iniciar importación');
+      btnStartImport.disabled = false;
+      btnStartImport.textContent = '▶ Iniciar importación';
+    }
+  } catch (e) {
+    alert('Error de conexión');
+    btnStartImport.disabled = false;
+    btnStartImport.textContent = '▶ Iniciar importación';
+  }
+});
+
+btnStopImport.addEventListener('click', async () => {
+  await fetch('/api/import/stop', { method: 'POST' });
+  debugLog('Solicitud de detención enviada', 'warn');
+});
+
+/* Credenciales intranet guardadas + botón Importar de cabecera */
+const btnImportarHeader = document.getElementById('btnImportarHeader');
+const btnGuardarIntranet = document.getElementById('btnGuardarIntranet');
+const intranetCredStatus = document.getElementById('intranetCredStatus');
+let headerImportActive = false;
+
+fetch('/api/config/intranet').then(r => r.json()).then(data => {
+  if (data.intranet_user) importUser.value = data.intranet_user;
+  if (data.has_pass) {
+    importPass.placeholder = '•••••••• (guardada)';
+    intranetCredStatus.textContent = '✓ Credenciales guardadas';
+    intranetCredStatus.style.color = '#16a34a';
+  }
+}).catch(() => {});
+
+btnGuardarIntranet.addEventListener('click', async () => {
+  const user = importUser.value.trim();
+  const pass = importPass.value.trim();
+  if (!user) { intranetCredStatus.textContent = 'Introduce el usuario'; intranetCredStatus.style.color = '#dc2626'; return; }
+  btnGuardarIntranet.disabled = true;
+  try {
+    const body = { intranet_user: user };
+    if (pass) body.intranet_pass = pass;
+    const res = await fetch('/api/config/intranet', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      intranetCredStatus.textContent = '✓ Credenciales guardadas' + (data.has_pass ? '' : ' (sin contraseña)');
+      intranetCredStatus.style.color = '#16a34a';
+      if (data.has_pass) { importPass.value = ''; importPass.placeholder = '•••••••• (guardada)'; }
+      debugLog('Credenciales de intranet guardadas', 'success');
+    } else {
+      intranetCredStatus.textContent = 'Error al guardar';
+      intranetCredStatus.style.color = '#dc2626';
+    }
+  } catch (e) {
+    intranetCredStatus.textContent = 'Error de conexión';
+    intranetCredStatus.style.color = '#dc2626';
+  }
+  btnGuardarIntranet.disabled = false;
+});
+
+btnImportarHeader.addEventListener('click', async () => {
+  if (headerImportActive) return;
+  try {
+    const st = await (await fetch('/api/import/status')).json();
+    if (st.running) { alert('Ya hay una importación en curso'); return; }
+  } catch (e) {}
+  const user = importUser.value.trim();
+  const pass = importPass.value.trim();
+  const body = { max_docs: parseInt(importMaxDocs.value) || 50, headless: importHeadless.checked };
+  if (user && pass) { body.username = user; body.password = pass; }
+  else { body.use_saved_creds = true; }
+  const det = document.querySelector('#importPanel') ? document.querySelector('#importPanel').closest('details') : null;
+  if (det && !det.open) det.open = true;
+  headerImportActive = true;
+  btnImportarHeader.disabled = true;
+  btnImportarHeader.textContent = '⏳ Importando...';
+  try {
+    const res = await fetch('/api/import/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      btnStartImport.style.display = 'none';
+      btnStopImport.style.display = 'inline-block';
+      importProgressBar.style.display = 'block';
+      importLogs.style.display = 'block';
+      importLogs.innerHTML = '';
+      debugLog('Importación automática iniciada desde cabecera', 'info');
+      startImportPoll();
+      const ip = document.querySelector('#importPanel');
+      if (ip && ip.scrollIntoView) ip.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      throw new Error(data.detail || 'Error al iniciar importación');
+    }
+  } catch (e) {
+    headerImportActive = false;
+    btnImportarHeader.disabled = false;
+    btnImportarHeader.textContent = '📥 Importar';
+    alert(e.message === 'Usuario y contraseña son obligatorios'
+      ? 'Guarda tus credenciales en la sección Importar primero'
+      : e.message);
+  }
+});
+
+btnVerifyImported.addEventListener('click', async () => {
+  btnVerifyImported.disabled = true;
+  btnVerifyImported.textContent = 'Extrayendo datos...';
+  try {
+    const res = await fetch('/api/import/verify-all', { method: 'POST' });
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let documents = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const msg = JSON.parse(line.slice(6));
+          if (msg.type === 'progress') {
+            btnVerifyImported.textContent = `Extrayendo ${msg.current}/${msg.total}...`;
+            debugLog(`Extracción: ${msg.current}/${msg.total} — ${msg.document.name}`, 'info');
+          }
+          if (msg.type === 'done') {
+            documents = msg.documents;
+          }
+        } catch (e) {}
+      }
+    }
+
+    if (documents && documents.length) {
+      debugLog(`${documents.length} documentos listos para verificación`, 'success');
+      startImportBatch(documents);
+    } else {
+      alert('No hay documentos para verificar');
+    }
+  } catch (e) {
+    alert('Error de conexión');
+  }
+  btnVerifyImported.disabled = false;
+  btnVerifyImported.textContent = '🔍 Verificar todos';
+});
+
+function startImportBatch(documents) {
+  batchItems = documents.map(d => ({
+    file: null,
+    name: d.name,
+    status: 'pendiente',
+    id: d.id,
+    datos: d.datos,
+    resultado: null,
+    error: null,
+  }));
+  batchIndex = 0;
+  batchStop = false;
+
+  dropZone.classList.add('hidden');
+  batchCard.classList.remove('hidden');
+  btnStopBatch.style.display = 'inline-block';
+  batchSummary.innerHTML = '';
+  renderBatchQueue();
+
+  processImportBatch();
+}
+
+async function processImportBatchOne(idx) {
+    const item = batchItems[idx];
+    if (item.status !== 'pendiente') return;
+
+    item.status = 'verificando';
+    debugLog('[' + (idx+1) + '/' + batchItems.length + '] Verificando: ' + item.name, 'info');
+    renderBatchQueue();
+
+    try {
+      const verifyRes = await fetch(`/api/verify/${item.id}`, { method: 'POST' });
+      if (!verifyRes.ok) {
+        const errData = await verifyRes.json();
+        item.status = 'error';
+        item.error = errData.detail || 'Error al iniciar verificación';
+        debugLog('Error verificación: ' + item.error, 'error');
+        renderBatchQueue();
+        return;
+      }
+
+      debugLog('Esperando resultado de verificación...', 'info');
+      const result = await waitForVerification(item.id);
+      if (result) {
+        item.resultado = result;
+        item.status = 'completado';
+        const veredicto = result.veredicto || 'N/A';
+        const color = veredicto === 'manipulado' ? 'error' : veredicto === 'original' ? 'success' : 'warn';
+        debugLog('Veredicto: ' + veredicto.toUpperCase() + ' — ' + item.name, color);
+        renderBatchQueue();
+        showDetailResult(item.id);
+      } else {
+        item.status = 'error';
+        item.error = 'Timeout o error en verificación';
+        debugLog('Timeout en verificación para ' + item.name, 'error');
+        renderBatchQueue();
+      }
+    } catch (e) {
+      item.status = 'error';
+      item.error = e.message || 'Error desconocido';
+      debugLog('Excepción: ' + item.error, 'error');
+      renderBatchQueue();
+    }
+}
+
+async function processImportBatch() {
+  debugLog('Procesando lote importado: ' + batchItems.length + ' archivos', 'info');
+  const workers = getBatchWorkers();
+  debugLog('Paralelismo: ' + workers + ' hilo(s)', 'info');
+  let cursor = 0;
+  batchIndex = 0;
+  async function worker() {
+    while (true) {
+      if (batchStop) break;
+      const i = cursor++;
+      if (i >= batchItems.length) break;
+      batchIndex = i;
+      await processImportBatchOne(i);
+    }
+  }
+  await Promise.all(Array.from({ length: workers }, worker));
+
+  btnStopBatch.style.display = 'none';
+  debugLog('Lote finalizado. Procesados: ' + batchItems.filter(i => i.status === 'completado').length + '/' + batchItems.length, 'info');
+  showBatchSummary();
+}
+
+function startImportPoll() {
+  if (importPollInterval) clearInterval(importPollInterval);
+  importPollInterval = setInterval(pollImportStatus, 2000);
+}
+
+async function pollImportStatus() {
+  try {
+    const res = await fetch('/api/import/status');
+    const data = await res.json();
+    if (!res.ok) return;
+
+    const pct = data.total > 0 ? Math.round(data.processed / data.total * 100) : 0;
+    importProgressText.textContent = `${data.processed} / ${data.total}`;
+    importProgressPct.textContent = pct + '%';
+    importProgressFill.style.width = pct + '%';
+    importDownloaded.textContent = data.downloaded;
+    importErrors.textContent = data.errors;
+
+    if (data.logs && data.logs.length > 0) {
+      importLogs.innerHTML = data.logs.map(l => {
+        const cls = l.includes('ERROR') || l.includes('WARN') ? 'color:#dc2626' : l.includes('Descargado') ? 'color:#16a34a' : '';
+        return `<div style="${cls}">${l}</div>`;
+      }).join('');
+      importLogs.scrollTop = importLogs.scrollHeight;
+    }
+
+    if (!data.running) {
+      clearInterval(importPollInterval);
+      importPollInterval = null;
+      btnStartImport.style.display = 'inline-block';
+      btnStartImport.disabled = false;
+      btnStartImport.textContent = '▶ Iniciar importación';
+      btnStopImport.style.display = 'none';
+      if (data.downloaded > 0) {
+        btnVerifyImported.style.display = 'inline-block';
+      }
+      if (headerImportActive) {
+        headerImportActive = false;
+        if (btnImportarHeader) {
+          btnImportarHeader.disabled = false;
+          btnImportarHeader.textContent = '📥 Importar';
+        }
+        if (data.downloaded > 0 && data.errors === 0) {
+          debugLog('Importación automática: pasando a verificación...', 'info');
+          btnVerifyImported.click();
+        } else if (data.downloaded > 0) {
+          debugLog('Importación automática: hay errores, pulsa Verificar todos para continuar', 'warn');
+        }
+      }
+      debugLog(`Importación finalizada. Descargados: ${data.downloaded}, Errores: ${data.errors}`, 'success');
+      loadImportedDocs();
+    }
+  } catch (e) {}
+}
+
+async function loadImportedDocs() {
+  try {
+    const res = await fetch('/api/import/documents');
+    const data = await res.json();
+    if (res.ok && data.ok && data.count > 0) {
+      importDocsList.style.display = 'block';
+      importDocsCount.textContent = data.count;
+      importDocsContainer.innerHTML = data.documents.map(d => {
+        const sizeKB = Math.round(d.size / 1024);
+        return `<div style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.5rem;background:#f8f9fa;border-radius:4px;margin-bottom:0.25rem;font-size:0.8rem">
+          <span style="color:#dc2626">📄</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.filename}</span>
+          <span style="color:#888;font-size:0.75rem">${sizeKB} KB</span>
+        </div>`;
+      }).join('');
+    }
+  } catch (e) {}
+}
+
+const configOmniUrl = document.getElementById('configOmniUrl');
+const configOmniKey = document.getElementById('configOmniKey');
+const configOmniModel = document.getElementById('configOmniModel');
+const omniModelResults = document.getElementById('omniModelResults');
+const btnGuardarOmni = document.getElementById('btnGuardarOmni');
+const btnTestOmni = document.getElementById('btnTestOmni');
+const btnLoadModels = document.getElementById('btnLoadModels');
+const omniConfigStatus = document.getElementById('omniConfigStatus');
+const btnToggleAiOcr = document.getElementById('btnToggleAiOcr');
+let allModels = [];
+let selectedModel = 'OCR';
+
+const omniCombos = [
+  'auto/best-vision', 'auto/vision', 'auto/pro-vision',
+  'auto/best-fast', 'auto/best-chat', 'auto/best-reasoning',
+  'auto/best-coding', 'auto/best-coding-fast', 'auto/pro-coding',
+  'auto/pro-reasoning', 'auto/pro-chat', 'auto/pro-fast',
+  'auto/coding', 'auto/fast', 'auto/chat', 'auto/cheap',
+  'auto/offline', 'auto/smart', 'auto/claude-opus', 'auto/claude-sonnet',
+  'auto/best-free', 'auto/best-chaos', 'auto/chaos',
+  'auto/reasoning', 'auto/reasoning:pro',
+];
+
+fetch('/api/config/omniroute').then(r => r.json()).then(data => {
+  if (data.omniroute_url) configOmniUrl.value = data.omniroute_url;
+  if (data.omniroute_model) {
+    selectedModel = data.omniroute_model;
+    configOmniModel.value = data.omniroute_model;
+  }
+  if (data.has_key) {
+    configOmniKey.placeholder = data.omniroute_key_masked;
+    omniConfigStatus.textContent = 'Key configurada: ' + data.omniroute_key_masked;
+    omniConfigStatus.style.color = '#16a34a';
+  }
+  aiOcrEnabled = data.ai_ocr_fallback_enabled || false;
+  btnToggleAiOcr.checked = aiOcrEnabled;
+});
+function renderModelList(filter) {
+  const q = (filter || '').toLowerCase();
+  const models = q ? allModels.filter(m => m.toLowerCase().includes(q)) : allModels;
+  if (!models.length) {
+    omniModelResults.innerHTML = '<div style="padding:0.4rem;color:#999">Sin resultados</div>';
+  } else {
+    omniModelResults.innerHTML = models.slice(0, 100).map(m =>
+      `<div data-model="${m}" onclick="selectModel('${m}')" onmouseover="this.style.background='#f3e8ff'" onmouseout="this.style.background='#fff'">${m}</div>`
+    ).join('');
+  }
+  omniModelResults.classList.add('open');
+}
+
+window.selectModel = function(m) {
+  selectedModel = m;
+  configOmniModel.value = m;
+  omniModelResults.classList.remove('open');
+};
+
+configOmniModel.addEventListener('focus', () => {
+  if (!allModels.length) {
+    allModels = [...new Set([...omniCombos, ...allModels])].sort();
+  }
+  renderModelList(configOmniModel.value);
+});
+
+configOmniModel.addEventListener('input', () => {
+  renderModelList(configOmniModel.value);
+});
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.model-search-wrapper')) {
+    omniModelResults.classList.remove('open');
+  }
+});
+
+btnGuardarOmni.addEventListener('click', async () => {
+  const url = configOmniUrl.value.trim();
+  const key = configOmniKey.value.trim();
+  if (!url) { omniConfigStatus.textContent = 'Introduce la URL de OmniRoute'; omniConfigStatus.style.color = '#dc2626'; return; }
+  const body = { omniroute_url: url, omniroute_model: selectedModel, ai_ocr_fallback_enabled: aiOcrEnabled };
+  if (key) body.omniroute_key = key;
+  const res = await fetch('/api/config/omniroute', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (data.ok) {
+    omniConfigStatus.textContent = 'Guardado: ' + data.omniroute_key_masked;
+    omniConfigStatus.style.color = '#16a34a';
+    if (key) configOmniKey.value = '';
+    configOmniKey.placeholder = data.omniroute_key_masked;
+  }
+});
+
+btnTestOmni.addEventListener('click', async () => {
+  omniConfigStatus.textContent = 'Probando...';
+  omniConfigStatus.style.color = '#2563eb';
+  btnTestOmni.disabled = true;
+  const testUrl = configOmniUrl.value.trim();
+  const testKey = configOmniKey.value.trim();
+  const testBody = {};
+  if (testUrl) testBody.omniroute_url = testUrl;
+  if (testKey) testBody.omniroute_key = testKey;
+  try {
+    const res = await fetch('/api/config/omniroute/models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(testBody),
+    });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      omniConfigStatus.textContent = 'OK — ' + data.models.length + ' modelos';
+      omniConfigStatus.style.color = '#16a34a';
+    } else {
+      omniConfigStatus.textContent = 'Error: ' + (data.detail || 'Sin conexión');
+      omniConfigStatus.style.color = '#dc2626';
+    }
+  } catch (e) {
+    omniConfigStatus.textContent = 'Error de conexión';
+    omniConfigStatus.style.color = '#dc2626';
+  }
+  btnTestOmni.disabled = false;
+});
+
+btnLoadModels.addEventListener('click', async () => {
+  btnLoadModels.disabled = true;
+  btnLoadModels.textContent = '...';
+  const testUrl = configOmniUrl.value.trim();
+  const testKey = configOmniKey.value.trim();
+  const testBody = {};
+  if (testUrl) testBody.omniroute_url = testUrl;
+  if (testKey) testBody.omniroute_key = testKey;
+  try {
+    const res = await fetch('/api/config/omniroute/models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(testBody),
+    });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      allModels = [...new Set([...omniCombos, ...data.models])].sort();
+      renderModelList(configOmniModel.value);
+      omniConfigStatus.textContent = data.models.length + ' modelos cargados';
+      omniConfigStatus.style.color = '#16a34a';
+    }
+  } catch (e) {}
+  btnLoadModels.disabled = false;
+  btnLoadModels.textContent = 'Cargar';
+});
+
+btnToggleAiOcr.addEventListener('change', async () => {
+  aiOcrEnabled = btnToggleAiOcr.checked;
+  updateAiOcrUI();
+  await fetch('/api/config/omniroute', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ai_ocr_fallback_enabled: aiOcrEnabled }),
+  });
+  omniConfigStatus.textContent = aiOcrEnabled ? 'Fallback IA activado' : 'Fallback IA desactivado';
+  omniConfigStatus.style.color = '#2563eb';
+});
+
+const btnGuardarGoogle = document.getElementById('btnGuardarGoogle');
+const btnTestGoogle = document.getElementById('btnTestGoogle');
+const configGoogleKey = document.getElementById('configGoogleKey');
+const configGoogleModel = document.getElementById('configGoogleModel');
+const googleTestStatus = document.getElementById('googleTestStatus');
+
+fetch('/api/config/google').then(r => r.json()).then(data => {
+  if (data.google_model) configGoogleModel.value = data.google_model;
+});
+
+btnGuardarGoogle.addEventListener('click', async () => {
+  const key = configGoogleKey.value.trim();
+  const model = configGoogleModel.value.trim();
+  if (!key) { googleTestStatus.textContent = 'Introduce una API Key'; googleTestStatus.style.color = '#dc2626'; return; }
+  btnGuardarGoogle.disabled = true;
+  await fetch('/api/config/google', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ google_ai_key: key, google_model: model }),
+  });
+  hasGoogleKey = true;
+  updateGoogleUI();
+  googleTestStatus.textContent = 'Guardado';
+  googleTestStatus.style.color = '#16a34a';
+  configGoogleKey.value = '';
+  btnGuardarGoogle.disabled = false;
+});
+
+btnTestGoogle.addEventListener('click', async () => {
+  googleTestStatus.textContent = 'Probando...';
+  googleTestStatus.style.color = '#2563eb';
+  btnTestGoogle.disabled = true;
+  try {
+    const res = await fetch('/api/config/google/test', { method: 'POST' });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      googleTestStatus.textContent = 'OK — ' + data.model;
+      googleTestStatus.style.color = '#16a34a';
+    } else {
+      googleTestStatus.textContent = 'Error: ' + (data.detail || 'Sin conexión');
+      googleTestStatus.style.color = '#dc2626';
+    }
+  } catch (e) {
+    googleTestStatus.textContent = 'Error de conexión';
+    googleTestStatus.style.color = '#dc2626';
+  }
+  btnTestGoogle.disabled = false;
+});
+
+const btnGuardarOpenCode = document.getElementById('btnGuardarOpenCode');
+const btnTestOpenCode = document.getElementById('btnTestOpenCode');
+const configOpenCodeKey = document.getElementById('configOpenCodeKey');
+const configOpenCodeUrl = document.getElementById('configOpenCodeUrl');
+const configOpenCodeModel = document.getElementById('configOpenCodeModel');
+const opencodeTestStatus = document.getElementById('opencodeTestStatus');
+
+fetch('/api/config/opencode').then(r => r.json()).then(data => {
+  if (data.opencode_url) configOpenCodeUrl.value = data.opencode_url;
+  if (data.opencode_model) configOpenCodeModel.value = data.opencode_model;
+});
+
+btnGuardarOpenCode.addEventListener('click', async () => {
+  const key = configOpenCodeKey.value.trim();
+  const url = configOpenCodeUrl.value.trim();
+  const model = configOpenCodeModel.value.trim();
+  if (!key) { opencodeTestStatus.textContent = 'Introduce una API Key'; opencodeTestStatus.style.color = '#dc2626'; return; }
+  btnGuardarOpenCode.disabled = true;
+  await fetch('/api/config/opencode', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ opencode_key: key, opencode_url: url, opencode_model: model }),
+  });
+  hasOpenCodeKey = true;
+  updateOpenCodeUI();
+  opencodeTestStatus.textContent = 'Guardado';
+  opencodeTestStatus.style.color = '#16a34a';
+  configOpenCodeKey.value = '';
+  btnGuardarOpenCode.disabled = false;
+});
+
+btnTestOpenCode.addEventListener('click', async () => {
+  opencodeTestStatus.textContent = 'Probando...';
+  opencodeTestStatus.style.color = '#2563eb';
+  btnTestOpenCode.disabled = true;
+  try {
+    const res = await fetch('/api/config/opencode/test', { method: 'POST' });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      opencodeTestStatus.textContent = 'OK — ' + data.model;
+      opencodeTestStatus.style.color = '#16a34a';
+    } else {
+      opencodeTestStatus.textContent = 'Error: ' + (data.detail || 'Sin conexión');
+      opencodeTestStatus.style.color = '#dc2626';
+    }
+  } catch (e) {
+    opencodeTestStatus.textContent = 'Error de conexión';
+    opencodeTestStatus.style.color = '#dc2626';
+  }
+  btnTestOpenCode.disabled = false;
+});
+
 async function cargarResultado() {
   const res = await fetch(`/api/verify/${currentId}/result`);
   const data = await res.json();
@@ -1251,11 +3262,124 @@ function mostrarResultado(r, downloadId) {
     <div class="flex gap-1 mt-1" style="flex-wrap:wrap">
       <a href="/api/verify/${vid}/download-original" class="btn btn-success" target="_blank">Descargar original</a>
       <a href="/api/verify/${vid}/download-usuario" class="btn btn-secondary" target="_blank">Descargar usuario</a>
-      <button class="btn btn-primary" onclick="location.reload()">Nueva verificación</button>
+      <button class="btn btn-primary" onclick="fetch('/api/clear-uploads',{method:'POST'}).then(()=>location.reload())">Nueva verificación</button>
     </div>
   `;
   window.scrollTo({ top: resultadoCard.offsetTop - 20, behavior: 'smooth' });
 }
+</script>
+
+<div id="pdfViewerModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center">
+  <div style="width:90%;height:90%;background:#fff;border-radius:12px;overflow:hidden;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.75rem 1rem;background:#f8f9fa;border-bottom:1px solid #e5e7eb">
+      <strong style="font-size:0.95rem">📄 Visor PDF — Documento original</strong>
+      <button onclick="cerrarPdfVisor()" style="background:#dc2626;color:#fff;border:none;border-radius:6px;padding:0.4rem 1rem;cursor:pointer;font-weight:600">Cerrar</button>
+    </div>
+    <iframe id="pdfViewerFrame" style="flex:1;width:100%;border:none"></iframe>
+  </div>
+</div>
+
+<script>
+function mostrarPdfVisor() {
+  if (!currentId) return;
+  const frame = document.getElementById('pdfViewerFrame');
+  frame.src = `/api/pdf/${currentId}`;
+  document.getElementById('pdfViewerModal').style.display = 'flex';
+}
+function cerrarPdfVisor() {
+  document.getElementById('pdfViewerModal').style.display = 'none';
+  document.getElementById('pdfViewerFrame').src = '';
+}
+</script>
+<script>
+/* Consola forense: métricas puramente presentacionales. No toca lógica ni flujo. */
+(function () {
+  try {
+    var $ = function (id) { return document.getElementById(id); };
+    var t0 = null;
+    var sessT0 = Date.now();
+    function fmtHMS(ms) {
+      var s = Math.floor(ms / 1000);
+      var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+      s = s % 60;
+      return ('0' + h).slice(-2) + ':' + ('0' + m).slice(-2) + ':' + ('0' + s).slice(-2);
+    }
+    function shortState() {
+      var el = $('loadingMsg');
+      var t = el ? (el.textContent || '') : '';
+      if (/complet/i.test(t)) return ['completo', 'ok'];
+      if (/error|fall/i.test(t)) return ['error', 'err'];
+      if (/captcha/i.test(t)) return ['captcha manual', 'run'];
+      if (/reinici/i.test(t)) return ['reiniciando', 'run'];
+      return ['navegando', 'run'];
+    }
+    setInterval(function () {
+      try {
+        var visor = $('visorCard'), mTime = $('mTime'), vm = $('visorMetric'), dot = $('visorDot');
+        if (visor && !visor.classList.contains('hidden')) {
+          if (!t0) t0 = Date.now();
+          if (mTime) mTime.textContent = Math.floor((Date.now() - t0) / 1000) + 's';
+          var s = shortState();
+          if (vm) vm.innerHTML = '' + s[0];
+          if (dot) dot.className = 'status-dot ' + s[1];
+        } else { t0 = null; }
+        var bq = $('batchQueue');
+        if (bq) {
+          var items = bq.querySelectorAll('.batch-item');
+          var ok = 0, fail = 0, skip = 0, run = 0;
+          items.forEach(function (it) {
+            if (it.classList.contains('completado')) ok++;
+            else if (it.classList.contains('error')) fail++;
+            else if (it.classList.contains('omitido')) skip++;
+            else if (it.classList.contains('procesando')) run++;
+          });
+          var set = function (id, v) { var e = $(id); if (e) e.textContent = v; };
+          set('mQueue', items.length); set('mOk', ok); set('mFail', fail); set('mSkip', skip);
+          var bd = $('batchDot'), bm = $('batchMetric'), bp = $('batchProgress');
+          if (bd) bd.className = 'status-dot ' + (run ? 'run' : (fail ? 'err' : (ok ? 'ok' : '')));
+          if (bm && bp) bm.textContent = (bp.textContent || 'en espera').trim().slice(0, 42) || 'en espera';
+        }
+        var dc = $('debugConsole'), clk = $('dbgClock');
+        if (dc && clk && dc.classList.contains('open')) {
+          var d = new Date();
+          clk.textContent = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2);
+        }
+        var up = $('dbgUp');
+        if (up) up.textContent = fmtHMS(Date.now() - sessT0);
+        var om = $('ocrMetric'), ml = $('aiModelLabel');
+        if (om && ml && ml.textContent.trim() && ml.textContent.trim() !== '—') om.textContent = ml.textContent.trim().slice(0, 40);
+      } catch (e) {}
+    }, 1000);
+    var dbg = $('debugBody');
+    if (dbg && window.MutationObserver) {
+      var upd = function () {
+        try {
+          var lines = dbg.querySelectorAll('.debug-line').length;
+          var errs = dbg.querySelectorAll('.debug-line.error').length;
+          var l = $('dbgLines'), er = $('dbgErrs');
+          if (l) l.textContent = lines;
+          if (er) er.textContent = errs;
+          var dcLive = $('debugConsole');
+          if (dcLive) {
+            dcLive.classList.add('live');
+            clearTimeout(dcLive._liveT);
+            dcLive._liveT = setTimeout(function () { dcLive.classList.remove('live'); }, 3000);
+          }
+        } catch (e) {}
+      };
+      new MutationObserver(upd).observe(dbg, { childList: true });
+    }
+    /* consola acoplada: usa la lógica existente del toggle flotante */
+    try {
+      var dt = $('debugToggle'), dc2 = $('debugConsole'), ddt = $('debugDockToggle');
+      if (dt && dc2 && !dc2.classList.contains('open')) dt.click();
+      if (ddt && dt) ddt.addEventListener('click', function () {
+        dt.click();
+        ddt.textContent = dc2.classList.contains('open') ? 'ocultar' : 'mostrar';
+      });
+    } catch (e) {}
+  } catch (e) {}
+})();
 </script>
 </body>
 </html>

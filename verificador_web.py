@@ -144,13 +144,19 @@ class VerificadorWeb:
         extension_enabled = config.get("extension_enabled", False)
         use_scrapedo = config.get("use_scrapedo", False)
         captcha_2captcha = config.get("captcha_2captcha_enabled", False)
+        headless_override = config.get("headless_mode", None)
 
-        headless = captcha_2captcha and not extension_enabled
+        if headless_override is not None:
+            headless = headless_override
+        else:
+            headless = captcha_2captcha and not extension_enabled
         if executable_path:
             headless = False
 
         if not headless:
             _asegurar_display()
+
+        print(f"[VCDS DEBUG] headless_mode={headless_override}, final headless={headless}, executable_path={executable_path}")
 
         args = [
             "--disable-blink-features=AutomationControlled",

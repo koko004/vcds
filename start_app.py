@@ -10,7 +10,7 @@ time.sleep(1)
 
 proc = subprocess.Popen([
     'python3', '-m', 'uvicorn', 'app:app',
-    '--host', '0.0.0.0', '--port', '8000'
+    '--host', '0.0.0.0', '--port', '4776'
 ])
 
 def handle(sig, frame):

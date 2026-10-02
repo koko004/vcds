@@ -1,0 +1,46 @@
+services:
+  vcds:
+    image: koko004/vcds:1.0.30
+    container_name: vcds
+    restart: unless-stopped
+    ports:
+      - "4776:4776"
+    volumes:
+      - vcds_uploads:/app/uploads
+      - vcds_originales:/app/originales
+      - vcds_imports:/app/imports
+      - vcds_config:/app/config
+    environment:
+      - TZ=Europe/Madrid
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4776/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_CLEANUP_FILTER=label!=donotrotate
+      - WATCHTOWER_POLL_INTERVAL=3600
+      - WATCHTOWER_INCLUDE_STOPPED=true
+      - WATCHTOWER_REVIVE_STOPPED=true
+      - TZ=Europe/Madrid
+    command: >
+      --schedule "0 0 */1 * *"
+      --roll-update-timeout 5m
+      --stop-timeout 30s
+      --notifications-level info
+      vcds
+
+volumes:
+  vcds_uploads:
+  vcds_originales:
+  vcds_imports:
+  vcds_config:
